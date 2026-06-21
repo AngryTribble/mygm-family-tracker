@@ -185,7 +185,26 @@ let selectedDraftName = "";
 
 function money(n) { return "$" + Number(n || 0).toLocaleString(); }
 function escapeHtml(s) { return String(s ?? "").replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m])); }
-function imageBlock(w) { return w.image ? `<img src="${w.image}" alt="${escapeHtml(w.name)}" onerror="this.parentElement.innerHTML='No Image'">` : "No Image"; }
+function getImagePath(name) {
+  return "images/" +
+    name.toLowerCase()
+      .replace(/['".]/g, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "")
+    + ".png";
+}
+
+function imageBlock(w) {
+  const localPath = getImagePath(w.name);
+
+  return `
+    <img 
+      src="${localPath}" 
+      alt="${escapeHtml(w.name)}" 
+      onerror="this.parentElement.innerHTML='No Image'"
+    >
+  `;
+}
 
 function populateSetupDropdowns() {
   [1,2,3].forEach(i => {
