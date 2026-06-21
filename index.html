@@ -11,12 +11,15 @@
     .tab-btn { background:#facc15; }
     .danger { background:#ef4444; color:white; }
     .save { background:#22c55e; color:white; }
-    .card { background:#1f2937; margin:20px auto; padding:20px; border-radius:12px; max-width:1000px; }
-    input, select, textarea { width:100%; padding:10px; margin:6px 0 14px; border-radius:6px; border:0; }
+    .card { background:#1f2937; margin:20px auto; padding:20px; border-radius:12px; max-width:1200px; }
+    input, select, textarea { width:100%; padding:10px; margin:6px 0 14px; border-radius:6px; border:0; box-sizing:border-box; }
     table { width:100%; border-collapse:collapse; margin-top:15px; }
     th, td { border-bottom:1px solid #4b5563; padding:10px; text-align:left; }
     .hidden { display:none; }
     .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:15px; }
+    .budget-box { background:#111827; padding:12px; border-radius:10px; margin-bottom:10px; }
+    .pill { display:inline-block; padding:4px 8px; border-radius:20px; background:#374151; margin:2px; }
+    .draft-card { background:#111827; padding:15px; border-radius:10px; margin-top:15px; }
   </style>
 </head>
 <body>
@@ -30,6 +33,7 @@
   <button class="tab-btn" onclick="showTab('setup')">League Setup</button>
   <button class="tab-btn" onclick="showTab('draft')">Draft Room</button>
   <button class="tab-btn" onclick="showTab('roster')">Roster</button>
+  <button class="tab-btn" onclick="showTab('history')">Draft History</button>
   <button class="tab-btn" onclick="showTab('feuds')">Feuds</button>
   <button class="save" onclick="saveData()">Save</button>
   <button class="danger" onclick="resetData()">Reset</button>
@@ -37,27 +41,28 @@
 
 <section id="setup" class="card">
   <h2>League Setup</h2>
+
   <label>Season Name</label>
   <input id="seasonName" placeholder="Example: Brown Family WWE 2K26 Season">
 
   <div class="grid">
     <div>
-      <label>Brand 1</label>
-      <input id="brand1" placeholder="Raw">
-      <label>GM 1</label>
-      <input id="gm1" placeholder="Dad">
+      <h3>Player 1</h3>
+      <label>Brand</label><select id="brand1"></select>
+      <label>GM</label><select id="gm1"></select>
+      <label>Starting Budget</label><select id="budget1"></select>
     </div>
     <div>
-      <label>Brand 2</label>
-      <input id="brand2" placeholder="SmackDown">
-      <label>GM 2</label>
-      <input id="gm2" placeholder="James">
+      <h3>Player 2</h3>
+      <label>Brand</label><select id="brand2"></select>
+      <label>GM</label><select id="gm2"></select>
+      <label>Starting Budget</label><select id="budget2"></select>
     </div>
     <div>
-      <label>Brand 3</label>
-      <input id="brand3" placeholder="NXT">
-      <label>GM 3</label>
-      <input id="gm3" placeholder="Jensen">
+      <h3>Player 3</h3>
+      <label>Brand</label><select id="brand3"></select>
+      <label>GM</label><select id="gm3"></select>
+      <label>Starting Budget</label><select id="budget3"></select>
     </div>
   </div>
 
@@ -67,41 +72,46 @@
 <section id="draft" class="card hidden">
   <h2>Draft Room</h2>
 
-  <label>Superstar Name</label>
-  <input id="draftName" placeholder="Cody Rhodes">
+  <div id="budgetDisplay" class="grid"></div>
 
-  <label>Brand</label>
-  <select id="draftBrand"></select>
+  <label>Filter Superstars</label>
+  <input id="searchBox" placeholder="Search name, class, role, gender..." oninput="renderAvailableRoster()">
 
-  <label>Division</label>
-  <select id="draftDivision">
-    <option>Men</option>
-    <option>Women</option>
-    <option>Tag Team</option>
-    <option>Legend</option>
-  </select>
+  <div class="grid">
+    <div>
+      <label>Available Superstars</label>
+      <select id="availableRoster" size="15" onchange="showSelectedSuperstar()"></select>
+    </div>
 
-  <label>Role</label>
-  <select id="draftRole">
-    <option>Main Eventer</option>
-    <option>Mid Card</option>
-    <option>Opener</option>
-    <option>Specialist</option>
-  </select>
+    <div>
+      <div id="selectedCard" class="draft-card">
+        <h3>Select a superstar</h3>
+      </div>
 
-  <button class="save" onclick="draftSuperstar()">Draft Superstar</button>
+      <label>Draft To Brand</label>
+      <select id="draftBrand"></select>
 
-  <table>
-    <thead>
-      <tr><th>Name</th><th>Brand</th><th>Division</th><th>Role</th></tr>
-    </thead>
-    <tbody id="draftTable"></tbody>
-  </table>
+      <label>Superstar Cost</label>
+      <input id="draftCost" type="number" placeholder="Example: 275000">
+
+      <button class="save" onclick="draftSelectedSuperstar()">Draft Superstar</button>
+    </div>
+  </div>
 </section>
 
 <section id="roster" class="card hidden">
   <h2>Roster Management</h2>
   <div id="rosterCards"></div>
+</section>
+
+<section id="history" class="card hidden">
+  <h2>Draft History</h2>
+  <table>
+    <thead>
+      <tr><th>Pick</th><th>Brand</th><th>Superstar</th><th>Cost</th><th>Remaining Budget</th></tr>
+    </thead>
+    <tbody id="historyTable"></tbody>
+  </table>
 </section>
 
 <section id="feuds" class="card hidden">
@@ -130,11 +140,111 @@
 </section>
 
 <script>
-let data = {
-  setup: {},
-  roster: [],
-  feuds: []
-};
+const brandOptions = ["Raw","Smackdown","NXT","NXT 2.0","WCW","ECW","NXT Mutiny"];
+const gmOptions = ["Adam Pearce","Nick Aldis","Shawn Michaels","Ava","Stephanie McMahon","Paul Heyman","William Regal","Mick Foley","Theodore Long","Eric Bischoff","Stacy Keibler","Sensational Sherri","Miss Elizabeth","Mr. Fuji","Bobby \"The Brain\" Heenan","CM Punk","Xavier Woods","Tyler Breeze","Anonymous GM"];
+const budgetOptions = [3000000,4000000,5000000,6000000,7000000];
+
+const fullRoster = [
+{name:"Dirty Dominik Mysterio",gender:"Male",status:"Active",ring:14,pop:48,role:"Heel",classType:"Cruiser",promo:4},
+{name:"AJ Lee",gender:"Female",status:"Active",ring:15,pop:49,role:"Face",classType:"Fighter",promo:5},
+{name:"Akira Tozawa",gender:"Male",status:"Active",ring:8,pop:24,role:"Face",classType:"Cruiser",promo:2},
+{name:"Alba Fyre",gender:"Female",status:"Active",ring:10,pop:31,role:"Heel",classType:"Fighter",promo:2},
+{name:"Aleister Black",gender:"Male",status:"Active",ring:13,pop:39,role:"Heel",classType:"Fighter",promo:2},
+{name:"Alex Shelley",gender:"Male",status:"Active",ring:11,pop:33,role:"Face",classType:"Cruiser",promo:3},
+{name:"Alexa Bliss",gender:"Female",status:"Active",ring:14,pop:44,role:"Face",classType:"Cruiser",promo:4},
+{name:"Andre Chase",gender:"Male",status:"Active",ring:9,pop:28,role:"Face",classType:"Fighter",promo:3},
+{name:"Angel",gender:"Male",status:"Active",ring:9,pop:28,role:"Heel",classType:"Cruiser",promo:2},
+{name:"Angelo Dawkins",gender:"Male",status:"Active",ring:11,pop:34,role:"Face",classType:"Bruiser",promo:3},
+{name:"Apollo Crews",gender:"Male",status:"Active",ring:9,pop:30,role:"Face",classType:"Fighter",promo:2},
+{name:"Arianna Grace",gender:"Female",status:"Active",ring:10,pop:31,role:"Heel",classType:"Specialist",promo:4},
+{name:"Asuka",gender:"Female",status:"Active",ring:15,pop:52,role:"Heel",classType:"Fighter",promo:3},
+{name:"Austin Theory",gender:"Male",status:"Active",ring:12,pop:40,role:"Heel",classType:"Fighter",promo:3},
+{name:"Axiom",gender:"Male",status:"Active",ring:7,pop:24,role:"Face",classType:"Cruiser",promo:2},
+{name:"B-Fab",gender:"Female",status:"Active",ring:5,pop:18,role:"Face",classType:"Fighter",promo:3},
+{name:"Bayley",gender:"Female",status:"Active",ring:15,pop:50,role:"Face",classType:"Fighter",promo:5},
+{name:"Becky Lynch",gender:"Female",status:"Active",ring:17,pop:55,role:"Heel",classType:"Fighter",promo:5},
+{name:"Bianca Belair",gender:"Female",status:"Active",ring:16,pop:53,role:"Face",classType:"Bruiser",promo:4},
+{name:"Brock Lesnar",gender:"Male",status:"Active",ring:18,pop:70,role:"Heel",classType:"Bruiser",promo:3},
+{name:"Bron Breakker",gender:"Male",status:"Active",ring:13,pop:42,role:"Heel",classType:"Bruiser",promo:3},
+{name:"Bronson Reed",gender:"Male",status:"Active",ring:12,pop:38,role:"Heel",classType:"Giant",promo:2},
+{name:"Carmelo Hayes",gender:"Male",status:"Active",ring:14,pop:47,role:"Face",classType:"Cruiser",promo:4},
+{name:"Chad Gable",gender:"Male",status:"Active",ring:13,pop:40,role:"Heel",classType:"Fighter",promo:4},
+{name:"Charlotte Flair",gender:"Female",status:"Active",ring:16,pop:52,role:"Face",classType:"Fighter",promo:4},
+{name:"Chelsea Green",gender:"Female",status:"Active",ring:13,pop:41,role:"Heel",classType:"Specialist",promo:5},
+{name:"CM Punk",gender:"Male",status:"Active",ring:17,pop:55,role:"Face",classType:"Fighter",promo:5},
+{name:"Cody Rhodes",gender:"Male",status:"Active",ring:17,pop:55,role:"Face",classType:"Fighter",promo:5},
+{name:"Damian Priest",gender:"Male",status:"Active",ring:15,pop:45,role:"Face",classType:"Bruiser",promo:4},
+{name:"Drew McIntyre",gender:"Male",status:"Active",ring:17,pop:54,role:"Heel",classType:"Bruiser",promo:4},
+{name:"Ethan Page",gender:"Male",status:"Active",ring:12,pop:36,role:"Heel",classType:"Fighter",promo:4},
+{name:"Finn Balor",gender:"Male",status:"Active",ring:15,pop:50,role:"Face",classType:"Fighter",promo:4},
+{name:"Giulia",gender:"Female",status:"Active",ring:12,pop:38,role:"Heel",classType:"Fighter",promo:3},
+{name:"Grayson Waller",gender:"Male",status:"Active",ring:12,pop:40,role:"Heel",classType:"Fighter",promo:4},
+{name:"Gunther",gender:"Male",status:"Active",ring:16,pop:53,role:"Heel",classType:"Bruiser",promo:4},
+{name:"Ilja Dragunov",gender:"Male",status:"Active",ring:14,pop:42,role:"Face",classType:"Fighter",promo:3},
+{name:"Iyo Sky",gender:"Female",status:"Active",ring:15,pop:50,role:"Face",classType:"Cruiser",promo:4},
+{name:"Jacob Fatu",gender:"Male",status:"Active",ring:14,pop:45,role:"Face",classType:"Bruiser",promo:3},
+{name:"Jade Cargill",gender:"Female",status:"Active",ring:13,pop:45,role:"Heel",classType:"Bruiser",promo:3},
+{name:"Jey Uso",gender:"Male",status:"Active",ring:15,pop:50,role:"Face",classType:"Bruiser",promo:4},
+{name:"Jimmy Uso",gender:"Male",status:"Active",ring:13,pop:45,role:"Face",classType:"Bruiser",promo:3},
+{name:"Joe Hendry",gender:"Male",status:"Active",ring:12,pop:36,role:"Face",classType:"Fighter",promo:4},
+{name:"Johnny Gargano",gender:"Male",status:"Active",ring:14,pop:44,role:"Face",classType:"Bruiser",promo:4},
+{name:"Jordynne Grace",gender:"Female",status:"Active",ring:13,pop:42,role:"Face",classType:"Bruiser",promo:3},
+{name:"Kairi Sane",gender:"Female",status:"Active",ring:13,pop:44,role:"Heel",classType:"Cruiser",promo:3},
+{name:"Kevin Owens",gender:"Male",status:"Active",ring:16,pop:52,role:"Heel",classType:"Fighter",promo:5},
+{name:"Kofi Kingston",gender:"Male",status:"Active",ring:14,pop:48,role:"Heel",classType:"Cruiser",promo:4},
+{name:"LA Knight",gender:"Male",status:"Active",ring:15,pop:50,role:"Face",classType:"Fighter",promo:5},
+{name:"Liv Morgan",gender:"Female",status:"Active",ring:14,pop:48,role:"Heel",classType:"Fighter",promo:4},
+{name:"Logan Paul",gender:"Male",status:"Active",ring:13,pop:45,role:"Heel",classType:"Specialist",promo:5},
+{name:"Lyra Valkyria",gender:"Female",status:"Active",ring:13,pop:42,role:"Face",classType:"Fighter",promo:3},
+{name:"Montez Ford",gender:"Male",status:"Active",ring:14,pop:48,role:"Face",classType:"Cruiser",promo:4},
+{name:"Naomi",gender:"Female",status:"Active",ring:13,pop:44,role:"Heel",classType:"Cruiser",promo:3},
+{name:"Natalya",gender:"Female",status:"Active",ring:14,pop:45,role:"Heel",classType:"Fighter",promo:3},
+{name:"Nia Jax",gender:"Female",status:"Active",ring:13,pop:42,role:"Heel",classType:"Giant",promo:3},
+{name:"Nikki Bella",gender:"Female",status:"Active",ring:16,pop:65,role:"Heel",classType:"Fighter",promo:4},
+{name:"Oba Femi",gender:"Male",status:"Active",ring:12,pop:36,role:"Face",classType:"Giant",promo:2},
+{name:"Penta",gender:"Male",status:"Active",ring:14,pop:46,role:"Face",classType:"Cruiser",promo:3},
+{name:"R-Truth",gender:"Male",status:"Active",ring:10,pop:38,role:"Face",classType:"Fighter",promo:5},
+{name:"Randy Orton",gender:"Male",status:"Active",ring:16,pop:50,role:"Heel",classType:"Bruiser",promo:4},
+{name:"Raquel Rodriguez",gender:"Female",status:"Active",ring:12,pop:39,role:"Heel",classType:"Giant",promo:3},
+{name:"Rey Fenix",gender:"Male",status:"Active",ring:13,pop:40,role:"Face",classType:"Cruiser",promo:3},
+{name:"Rey Mysterio",gender:"Male",status:"Active",ring:13,pop:41,role:"Face",classType:"Cruiser",promo:4},
+{name:"Rhea Ripley",gender:"Female",status:"Active",ring:16,pop:50,role:"Face",classType:"Giant",promo:4},
+{name:"Roman Reigns",gender:"Male",status:"Active",ring:16,pop:52,role:"Heel",classType:"Bruiser",promo:5},
+{name:"Roxanne Perez",gender:"Female",status:"Active",ring:12,pop:39,role:"Heel",classType:"Cruiser",promo:4},
+{name:"Sami Zayn",gender:"Male",status:"Active",ring:15,pop:46,role:"Face",classType:"Fighter",promo:4},
+{name:"Seth Rollins",gender:"Male",status:"Active",ring:16,pop:51,role:"Heel",classType:"Fighter",promo:5},
+{name:"Sheamus",gender:"Male",status:"Active",ring:14,pop:43,role:"Face",classType:"Bruiser",promo:4},
+{name:"Shinsuke Nakamura",gender:"Male",status:"Active",ring:13,pop:38,role:"Face",classType:"Fighter",promo:4},
+{name:"Solo Sikoa",gender:"Male",status:"Active",ring:13,pop:42,role:"Heel",classType:"Giant",promo:4},
+{name:"Stephanie Vaquer",gender:"Female",status:"Active",ring:15,pop:49,role:"Face",classType:"Fighter",promo:4},
+{name:"Tama Tonga",gender:"Male",status:"Active",ring:12,pop:37,role:"Heel",classType:"Giant",promo:3},
+{name:"Tatum Paxley",gender:"Female",status:"Active",ring:12,pop:37,role:"Face",classType:"Specialist",promo:3},
+{name:"The Miz",gender:"Male",status:"Active",ring:13,pop:40,role:"Heel",classType:"Fighter",promo:5},
+{name:"Thea Hail",gender:"Female",status:"Active",ring:10,pop:33,role:"Face",classType:"Fighter",promo:3},
+{name:"Tiffany Stratton",gender:"Female",status:"Active",ring:15,pop:48,role:"Face",classType:"Cruiser",promo:4},
+{name:"Tony D'Angelo",gender:"Male",status:"Active",ring:13,pop:39,role:"Face",classType:"Bruiser",promo:4},
+{name:"Trick Williams",gender:"Male",status:"Active",ring:14,pop:44,role:"Heel",classType:"Fighter",promo:4},
+{name:"Uncle Howdy",gender:"Male",status:"Active",ring:12,pop:38,role:"Face",classType:"Specialist",promo:4},
+{name:"Xavier Woods",gender:"Male",status:"Active",ring:12,pop:38,role:"Heel",classType:"Cruiser",promo:5},
+{name:"Zaria",gender:"Female",status:"Active",ring:13,pop:40,role:"Heel",classType:"Giant",promo:2},
+{name:"Zelina Vega",gender:"Female",status:"Active",ring:12,pop:37,role:"Heel",classType:"Cruiser",promo:4},
+{name:"Zoey Stark",gender:"Female",status:"Active",ring:11,pop:34,role:"Face",classType:"Fighter",promo:2},
+{name:"Matt Cardona",gender:"Male",status:"Active",ring:13,pop:41,role:"Face",classType:"Fighter",promo:4},
+{name:"La Parka",gender:"Male",status:"Active",ring:12,pop:38,role:"Face",classType:"Cruiser",promo:2},
+{name:"Pagano",gender:"Male",status:"Active",ring:12,pop:37,role:"Face",classType:"Bruiser",promo:2}
+];
+
+let data = { setup:{}, roster:[], feuds:[], draftHistory:[] };
+
+function money(n){ return "$" + Number(n || 0).toLocaleString(); }
+
+function populateSetupDropdowns(){
+  [1,2,3].forEach(i=>{
+    document.getElementById("brand"+i).innerHTML = `<option value="">Select Brand</option>` + brandOptions.map(x=>`<option>${x}</option>`).join("");
+    document.getElementById("gm"+i).innerHTML = `<option value="">Select GM</option>` + gmOptions.map(x=>`<option>${x}</option>`).join("");
+    document.getElementById("budget"+i).innerHTML = budgetOptions.map(x=>`<option value="${x}">${money(x)}</option>`).join("");
+  });
+}
 
 function showTab(tab) {
   document.querySelectorAll("section").forEach(s => s.classList.add("hidden"));
@@ -143,39 +253,134 @@ function showTab(tab) {
 }
 
 function saveSetup() {
-  data.setup = {
-    seasonName: document.getElementById("seasonName").value,
-    brands: [
-      { name: document.getElementById("brand1").value, gm: document.getElementById("gm1").value },
-      { name: document.getElementById("brand2").value, gm: document.getElementById("gm2").value },
-      { name: document.getElementById("brand3").value, gm: document.getElementById("gm3").value }
-    ].filter(b => b.name)
-  };
+  const brands = [1,2,3].map(i => ({
+    name: document.getElementById("brand"+i).value,
+    gm: document.getElementById("gm"+i).value,
+    startingBudget: Number(document.getElementById("budget"+i).value),
+    remainingBudget: data.setup.brands?.[i-1]?.remainingBudget ?? Number(document.getElementById("budget"+i).value)
+  })).filter(b => b.name && b.gm);
+
+  const brandNames = brands.map(b=>b.name);
+  const gmNames = brands.map(b=>b.gm);
+
+  if (new Set(brandNames).size !== brandNames.length) return alert("Each brand can only be selected once.");
+  if (new Set(gmNames).size !== gmNames.length) return alert("Each GM can only be selected once.");
+
+  data.setup = { seasonName: document.getElementById("seasonName").value, brands };
   saveData();
   renderAll();
   alert("League setup saved!");
 }
 
-function draftSuperstar() {
-  const wrestler = {
-    name: document.getElementById("draftName").value,
-    brand: document.getElementById("draftBrand").value,
-    division: document.getElementById("draftDivision").value,
-    role: document.getElementById("draftRole").value,
-    alignment: "Face",
-    champion: "No",
-    notes: ""
-  };
+function renderBrandDropdowns() {
+  const brands = data.setup.brands || [];
+  ["draftBrand","feudBrand"].forEach(id=>{
+    const drop = document.getElementById(id);
+    drop.innerHTML = brands.map(b=>`<option value="${b.name}">${b.name} - ${b.gm}</option>`).join("");
+  });
+}
 
-  if (!wrestler.name || !wrestler.brand) {
-    alert("Add a wrestler name and brand first.");
-    return;
-  }
+function renderBudgetDisplay(){
+  const area = document.getElementById("budgetDisplay");
+  area.innerHTML = (data.setup.brands || []).map(b=>`
+    <div class="budget-box">
+      <strong>${b.name}</strong><br>
+      GM: ${b.gm}<br>
+      Starting: ${money(b.startingBudget)}<br>
+      Remaining: <strong>${money(b.remainingBudget)}</strong>
+    </div>
+  `).join("");
+}
 
-  data.roster.push(wrestler);
-  document.getElementById("draftName").value = "";
+function renderAvailableRoster(){
+  const search = document.getElementById("searchBox")?.value?.toLowerCase() || "";
+  const draftedNames = data.roster.map(w=>w.name);
+  const available = fullRoster
+    .filter(w => w.status === "Active")
+    .filter(w => !draftedNames.includes(w.name))
+    .filter(w => JSON.stringify(w).toLowerCase().includes(search))
+    .sort((a,b)=>b.pop-a.pop);
+
+  const select = document.getElementById("availableRoster");
+  select.innerHTML = available.map(w=>`
+    <option value="${w.name}">
+      ${w.name} | ${w.gender} | ${w.role} | ${w.classType} | Pop ${w.pop}
+    </option>
+  `).join("");
+}
+
+function showSelectedSuperstar(){
+  const name = document.getElementById("availableRoster").value;
+  const w = fullRoster.find(x=>x.name===name);
+  if (!w) return;
+
+  document.getElementById("selectedCard").innerHTML = `
+    <h3>${w.name}</h3>
+    <span class="pill">${w.gender}</span>
+    <span class="pill">${w.role}</span>
+    <span class="pill">${w.classType}</span>
+    <p>Popularity: ${w.pop}</p>
+    <p>Ring Level: ${w.ring}</p>
+    <p>Promo Skill: ${w.promo}</p>
+  `;
+}
+
+function draftSelectedSuperstar(){
+  const name = document.getElementById("availableRoster").value;
+  const brandName = document.getElementById("draftBrand").value;
+  const cost = Number(document.getElementById("draftCost").value);
+
+  const wrestler = fullRoster.find(w=>w.name===name);
+  const brand = data.setup.brands.find(b=>b.name===brandName);
+
+  if (!wrestler) return alert("Select a superstar first.");
+  if (wrestler.status !== "Active") return alert("Contract wrestlers cannot be drafted.");
+  if (!brand) return alert("Select a brand.");
+  if (!cost || cost <= 0) return alert("Enter the superstar cost.");
+  if (cost > brand.remainingBudget) return alert(`${brand.name} only has ${money(brand.remainingBudget)} left.`);
+
+  brand.remainingBudget -= cost;
+
+  data.roster.push({...wrestler, brand:brand.name, cost});
+  data.draftHistory.push({
+    pick:data.draftHistory.length + 1,
+    brand:brand.name,
+    superstar:wrestler.name,
+    cost,
+    remainingBudget:brand.remainingBudget
+  });
+
+  document.getElementById("draftCost").value = "";
   saveData();
   renderAll();
+}
+
+function renderRoster() {
+  const area = document.getElementById("rosterCards");
+  area.innerHTML = "";
+
+  (data.setup.brands || []).forEach(b => {
+    const members = data.roster.filter(w => w.brand === b.name);
+    area.innerHTML += `
+      <h3>${b.name} — GM: ${b.gm} — Remaining: ${money(b.remainingBudget)}</h3>
+      <table>
+        <thead><tr><th>Name</th><th>Gender</th><th>Role</th><th>Class</th><th>Popularity</th><th>Cost</th></tr></thead>
+        <tbody>
+          ${members.map(w => `
+            <tr>
+              <td>${w.name}</td><td>${w.gender}</td><td>${w.role}</td><td>${w.classType}</td><td>${w.pop}</td><td>${money(w.cost)}</td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    `;
+  });
+}
+
+function renderHistory(){
+  document.getElementById("historyTable").innerHTML = data.draftHistory.map(h=>`
+    <tr><td>${h.pick}</td><td>${h.brand}</td><td>${h.superstar}</td><td>${money(h.cost)}</td><td>${money(h.remainingBudget)}</td></tr>
+  `).join("");
 }
 
 function addFeud() {
@@ -185,12 +390,7 @@ function addFeud() {
     two: document.getElementById("feudTwo").value,
     notes: document.getElementById("feudNotes").value
   };
-
-  if (!feud.one || !feud.two) {
-    alert("Add both sides of the feud.");
-    return;
-  }
-
+  if (!feud.one || !feud.two) return alert("Add both sides of the feud.");
   data.feuds.push(feud);
   document.getElementById("feudOne").value = "";
   document.getElementById("feudTwo").value = "";
@@ -199,110 +399,39 @@ function addFeud() {
   renderAll();
 }
 
+function renderFeuds() {
+  document.getElementById("feudTable").innerHTML = data.feuds.map(f=>`
+    <tr><td>${f.brand}</td><td>${f.one} vs ${f.two}</td><td>${f.notes}</td></tr>
+  `).join("");
+}
+
 function renderAll() {
   renderBrandDropdowns();
-  renderDraftTable();
+  renderBudgetDisplay();
+  renderAvailableRoster();
   renderRoster();
+  renderHistory();
   renderFeuds();
 }
 
-function renderBrandDropdowns() {
-  const brands = data.setup.brands || [];
-  const dropdowns = [document.getElementById("draftBrand"), document.getElementById("feudBrand")];
-
-  dropdowns.forEach(drop => {
-    drop.innerHTML = "";
-    brands.forEach(b => {
-      const option = document.createElement("option");
-      option.value = b.name;
-      option.textContent = `${b.name} - ${b.gm}`;
-      drop.appendChild(option);
-    });
-  });
-}
-
-function renderDraftTable() {
-  const table = document.getElementById("draftTable");
-  table.innerHTML = "";
-
-  data.roster.forEach(w => {
-    table.innerHTML += `
-      <tr>
-        <td>${w.name}</td>
-        <td>${w.brand}</td>
-        <td>${w.division}</td>
-        <td>${w.role}</td>
-      </tr>
-    `;
-  });
-}
-
-function renderRoster() {
-  const area = document.getElementById("rosterCards");
-  area.innerHTML = "";
-
-  const brands = data.setup.brands || [];
-
-  brands.forEach(b => {
-    const members = data.roster.filter(w => w.brand === b.name);
-
-    area.innerHTML += `
-      <h3>${b.name} — GM: ${b.gm}</h3>
-      <table>
-        <thead>
-          <tr>
-            <th>Name</th><th>Division</th><th>Role</th><th>Alignment</th><th>Champion</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${members.map(w => `
-            <tr>
-              <td>${w.name}</td>
-              <td>${w.division}</td>
-              <td>${w.role}</td>
-              <td>${w.alignment}</td>
-              <td>${w.champion}</td>
-            </tr>
-          `).join("")}
-        </tbody>
-      </table>
-    `;
-  });
-}
-
-function renderFeuds() {
-  const table = document.getElementById("feudTable");
-  table.innerHTML = "";
-
-  data.feuds.forEach(f => {
-    table.innerHTML += `
-      <tr>
-        <td>${f.brand}</td>
-        <td>${f.one} vs ${f.two}</td>
-        <td>${f.notes}</td>
-      </tr>
-    `;
-  });
-}
-
 function saveData() {
-  localStorage.setItem("mygmFamilyTracker", JSON.stringify(data));
+  localStorage.setItem("mygmFamilyTrackerV2", JSON.stringify(data));
 }
 
 function loadData() {
-  const saved = localStorage.getItem("mygmFamilyTracker");
+  populateSetupDropdowns();
+  const saved = localStorage.getItem("mygmFamilyTrackerV2");
   if (saved) data = JSON.parse(saved);
 
-  if (data.setup) {
-    document.getElementById("seasonName").value = data.setup.seasonName || "";
-    if (data.setup.brands) {
-      document.getElementById("brand1").value = data.setup.brands[0]?.name || "";
-      document.getElementById("gm1").value = data.setup.brands[0]?.gm || "";
-      document.getElementById("brand2").value = data.setup.brands[1]?.name || "";
-      document.getElementById("gm2").value = data.setup.brands[1]?.gm || "";
-      document.getElementById("brand3").value = data.setup.brands[2]?.name || "";
-      document.getElementById("gm3").value = data.setup.brands[2]?.gm || "";
-    }
+  document.getElementById("seasonName").value = data.setup.seasonName || "";
+
+  if (data.setup.brands) {
+    data.setup.brands.forEach((b,idx)=>{
+      const i = idx+1;
+      document.getElementById("brand"+i).value = b.name || "";
+      document.getElementById("gm"+i).value = b.gm || "";
+      document.getElementById("budget"+i).value = b.startingBudget || 3000000;
+    });
   }
 
   renderAll();
@@ -310,7 +439,7 @@ function loadData() {
 
 function resetData() {
   if (confirm("This will erase your saved MyGM season on this browser. Are you sure?")) {
-    localStorage.removeItem("mygmFamilyTracker");
+    localStorage.removeItem("mygmFamilyTrackerV2");
     location.reload();
   }
 }
