@@ -2,37 +2,70 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>MyGM Family Tracker</title>
   <style>
-    body { font-family: Arial, sans-serif; background:#111827; color:white; margin:0; }
-    header { background:#1f2937; padding:20px; text-align:center; }
-    nav { display:flex; gap:10px; justify-content:center; flex-wrap:wrap; padding:15px; background:#374151; }
-    button { padding:10px 14px; border:0; border-radius:8px; cursor:pointer; font-weight:bold; }
-    .tab-btn { background:#facc15; }
-    .danger { background:#ef4444; color:white; }
-    .save { background:#22c55e; color:white; }
-    .card { background:#1f2937; margin:20px auto; padding:20px; border-radius:12px; max-width:1200px; }
-    input, select, textarea { width:100%; padding:10px; margin:6px 0 14px; border-radius:6px; border:0; box-sizing:border-box; }
-    table { width:100%; border-collapse:collapse; margin-top:15px; }
-    th, td { border-bottom:1px solid #4b5563; padding:10px; text-align:left; }
+    :root {
+      --bg:#0b1020; --panel:#161d31; --panel2:#202a44; --text:#f8fafc; --muted:#aab4c8;
+      --gold:#facc15; --green:#22c55e; --red:#ef4444; --blue:#60a5fa; --line:#334155;
+    }
+    * { box-sizing:border-box; }
+    body { margin:0; font-family:Arial, sans-serif; background:var(--bg); color:var(--text); }
+    header { padding:22px; text-align:center; background:linear-gradient(135deg,#111827,#1e293b); }
+    header h1 { margin:0; font-size:2rem; }
+    header p { margin:8px 0 0; color:var(--muted); }
+    nav { display:flex; gap:10px; justify-content:center; flex-wrap:wrap; padding:14px; background:#101827; position:sticky; top:0; z-index:10; }
+    button { border:0; border-radius:10px; padding:10px 14px; cursor:pointer; font-weight:700; }
+    .tab-btn { background:var(--gold); color:#111827; }
+    .save { background:var(--green); color:white; }
+    .danger { background:var(--red); color:white; }
+    .ghost { background:var(--panel2); color:var(--text); border:1px solid var(--line); }
+    .card { background:var(--panel); margin:22px auto; padding:22px; border-radius:16px; max-width:1320px; box-shadow:0 8px 30px rgba(0,0,0,.25); }
     .hidden { display:none; }
-    .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:15px; }
-    .budget-box { background:#111827; padding:12px; border-radius:10px; margin-bottom:10px; }
-    .pill { display:inline-block; padding:4px 8px; border-radius:20px; background:#374151; margin:2px; }
-    .draft-card { background:#111827; padding:15px; border-radius:10px; margin-top:15px; }
+    .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:16px; }
+    .two-col { display:grid; grid-template-columns:280px 1fr; gap:18px; }
+    @media (max-width:900px) { .two-col { grid-template-columns:1fr; } }
+    input, select, textarea { width:100%; padding:10px; border-radius:8px; border:1px solid var(--line); background:#0f172a; color:var(--text); margin:6px 0 12px; }
+    label { color:var(--muted); font-weight:700; font-size:.9rem; }
+    table { width:100%; border-collapse:collapse; margin-top:15px; }
+    th,td { border-bottom:1px solid var(--line); padding:10px; text-align:left; vertical-align:top; }
+    th { color:var(--gold); }
+    .budget-box,.stat-box,.recommendation-box { background:#0f172a; padding:14px; border-radius:14px; border:1px solid var(--line); }
+    .stat-box strong { font-size:1.4rem; color:var(--gold); }
+    .pill { display:inline-block; padding:4px 8px; border-radius:999px; background:#334155; color:white; margin:2px; font-size:.78rem; }
+    .pill.good { background:#166534; } .pill.warn { background:#854d0e; } .pill.bad { background:#7f1d1d; }
+    .brand-tabs,.sub-tabs { display:flex; flex-wrap:wrap; gap:8px; margin:12px 0 18px; }
+    .brand-tabs button,.sub-tabs button { background:var(--panel2); color:white; border:1px solid var(--line); }
+    .brand-tabs button.active,.sub-tabs button.active { background:var(--gold); color:#111827; }
+    .wrestler-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr)); gap:16px; margin-top:16px; }
+    .wrestler-card { background:#0f172a; border:1px solid var(--line); border-radius:16px; overflow:hidden; display:flex; flex-direction:column; min-height:360px; }
+    .wrestler-img { height:180px; background:#111827; display:flex; align-items:center; justify-content:center; color:var(--muted); font-weight:700; }
+    .wrestler-img img { width:100%; height:100%; object-fit:cover; }
+    .wrestler-body { padding:14px; flex:1; }
+    .wrestler-body h3 { margin:0 0 6px; font-size:1.05rem; }
+    .metrics { color:var(--muted); font-size:.9rem; line-height:1.6; }
+    .card-actions { padding:0 14px 14px; display:grid; gap:8px; }
+    .filters { background:#0f172a; border:1px solid var(--line); border-radius:14px; padding:14px; }
+    .recommendation-list { display:grid; gap:10px; }
+    .recommendation-item { background:#111827; border:1px solid var(--line); border-radius:12px; padding:10px; }
+    .stars { color:var(--gold); letter-spacing:1px; }
+    .modal-backdrop { display:none; position:fixed; inset:0; background:rgba(0,0,0,.65); align-items:center; justify-content:center; padding:20px; z-index:50; }
+    .modal { background:var(--panel); border:1px solid var(--line); border-radius:18px; max-width:520px; width:100%; padding:20px; }
+    .modal-backdrop.show { display:flex; }
+    .small { color:var(--muted); font-size:.85rem; }
+    .top-row { display:flex; gap:12px; flex-wrap:wrap; align-items:center; justify-content:space-between; }
   </style>
 </head>
 <body>
-
 <header>
   <h1>MyGM Family Tracker</h1>
-  <p>Draft. Manage rosters. Track feuds. Remember your chaos.</p>
+  <p>Draft cards. Budget tracking. Brand dashboards. Recommendation logic.</p>
 </header>
 
 <nav>
   <button class="tab-btn" onclick="showTab('setup')">League Setup</button>
   <button class="tab-btn" onclick="showTab('draft')">Draft Room</button>
-  <button class="tab-btn" onclick="showTab('roster')">Roster</button>
+  <button class="tab-btn" onclick="showTab('roster')">Brand Dashboard</button>
   <button class="tab-btn" onclick="showTab('history')">Draft History</button>
   <button class="tab-btn" onclick="showTab('feuds')">Feuds</button>
   <button class="save" onclick="saveData()">Save</button>
@@ -41,208 +74,125 @@
 
 <section id="setup" class="card">
   <h2>League Setup</h2>
-
   <label>Season Name</label>
   <input id="seasonName" placeholder="Example: Brown Family WWE 2K26 Season">
 
   <div class="grid">
-    <div>
+    <div class="budget-box">
       <h3>Player 1</h3>
       <label>Brand</label><select id="brand1"></select>
       <label>GM</label><select id="gm1"></select>
       <label>Starting Budget</label><select id="budget1"></select>
+      <label>Draft Philosophy</label><select id="philosophy1"></select>
     </div>
-    <div>
+    <div class="budget-box">
       <h3>Player 2</h3>
       <label>Brand</label><select id="brand2"></select>
       <label>GM</label><select id="gm2"></select>
       <label>Starting Budget</label><select id="budget2"></select>
+      <label>Draft Philosophy</label><select id="philosophy2"></select>
     </div>
-    <div>
+    <div class="budget-box">
       <h3>Player 3</h3>
       <label>Brand</label><select id="brand3"></select>
       <label>GM</label><select id="gm3"></select>
       <label>Starting Budget</label><select id="budget3"></select>
+      <label>Draft Philosophy</label><select id="philosophy3"></select>
     </div>
   </div>
-
   <button class="save" onclick="saveSetup()">Save Setup</button>
 </section>
 
 <section id="draft" class="card hidden">
-  <h2>Draft Room</h2>
-
+  <div class="top-row">
+    <h2>Draft Room</h2>
+    <button class="ghost" onclick="renderDraftRoom()">Refresh Draft Board</button>
+  </div>
   <div id="budgetDisplay" class="grid"></div>
 
-  <label>Filter Superstars</label>
-  <input id="searchBox" placeholder="Search name, class, role, gender..." oninput="renderAvailableRoster()">
+  <div class="two-col">
+    <aside class="filters">
+      <h3>Filters</h3>
+      <label>Search</label><input id="searchBox" placeholder="Search name..." oninput="renderDraftRoom()">
+      <label>Brand for Recommendations</label><select id="recommendBrand" onchange="renderDraftRoom()"></select>
+      <label>Gender</label><select id="filterGender" onchange="renderDraftRoom()"><option value="">All</option><option>Male</option><option>Female</option><option value="Unknown">Unknown / Blank</option></select>
+      <label>Class</label><select id="filterClass" onchange="renderDraftRoom()"><option value="">All</option><option>Cruiser</option><option>Giant</option><option>Fighter</option><option>Bruiser</option><option>Specialist</option></select>
+      <label>Role</label><select id="filterRole" onchange="renderDraftRoom()"><option value="">All</option><option>Face</option><option>Heel</option></select>
+      <label>Sort</label><select id="sortMode" onchange="renderDraftRoom()"><option value="recommended">Recommended Fit</option><option value="pop">Popularity</option><option value="promo">Promo Skill</option><option value="ring">Ring Level</option><option value="name">Name</option></select>
 
-  <div class="grid">
-    <div>
-      <label>Available Superstars</label>
-      <select id="availableRoster" size="15" onchange="showSelectedSuperstar()"></select>
-    </div>
+      <h3>Draft Recommendations</h3>
+      <div id="recommendations" class="recommendation-list"></div>
+    </aside>
 
-    <div>
-      <div id="selectedCard" class="draft-card">
-        <h3>Select a superstar</h3>
-      </div>
-
-      <label>Draft To Brand</label>
-      <select id="draftBrand"></select>
-
-      <label>Superstar Cost</label>
-      <input id="draftCost" type="number" placeholder="Example: 275000">
-
-      <button class="save" onclick="draftSelectedSuperstar()">Draft Superstar</button>
-    </div>
+    <main>
+      <h3>Available Superstars</h3>
+      <p class="small">Only Active wrestlers appear on this draft board. Contract wrestlers from the roster file are blocked from drafting.</p>
+      <div id="draftCards" class="wrestler-grid"></div>
+    </main>
   </div>
 </section>
 
 <section id="roster" class="card hidden">
-  <h2>Roster Management</h2>
-  <div id="rosterCards"></div>
+  <h2>Brand Dashboard</h2>
+  <div id="brandTabs" class="brand-tabs"></div>
+  <div id="brandDashboard"></div>
 </section>
 
 <section id="history" class="card hidden">
   <h2>Draft History</h2>
   <table>
-    <thead>
-      <tr><th>Pick</th><th>Brand</th><th>Superstar</th><th>Cost</th><th>Remaining Budget</th></tr>
-    </thead>
+    <thead><tr><th>Pick</th><th>Brand</th><th>Superstar</th><th>Cost</th><th>Remaining Budget</th></tr></thead>
     <tbody id="historyTable"></tbody>
   </table>
 </section>
 
 <section id="feuds" class="card hidden">
   <h2>Feud Tracker</h2>
-
-  <label>Brand</label>
-  <select id="feudBrand"></select>
-
-  <label>Wrestler / Team 1</label>
-  <input id="feudOne" placeholder="LA Knight">
-
-  <label>Wrestler / Team 2</label>
-  <input id="feudTwo" placeholder="Logan Paul">
-
-  <label>Feud Notes</label>
-  <textarea id="feudNotes" placeholder="Started after a promo. Blowoff planned at SummerSlam."></textarea>
-
+  <label>Brand</label><select id="feudBrand"></select>
+  <label>Wrestler / Team 1</label><input id="feudOne" placeholder="LA Knight">
+  <label>Wrestler / Team 2</label><input id="feudTwo" placeholder="Logan Paul">
+  <label>Feud Notes</label><textarea id="feudNotes" placeholder="Started after a promo. Blowoff planned at SummerSlam."></textarea>
   <button class="save" onclick="addFeud()">Add Feud</button>
-
   <table>
-    <thead>
-      <tr><th>Brand</th><th>Feud</th><th>Notes</th></tr>
-    </thead>
+    <thead><tr><th>Brand</th><th>Feud</th><th>Notes</th></tr></thead>
     <tbody id="feudTable"></tbody>
   </table>
 </section>
+
+<div id="draftModal" class="modal-backdrop">
+  <div class="modal">
+    <h2 id="modalTitle">Draft Superstar</h2>
+    <div id="modalDetails"></div>
+    <label>Draft To Brand</label><select id="modalBrand"></select>
+    <label>Superstar Cost</label><input id="modalCost" type="number" placeholder="Example: 275000">
+    <div class="grid">
+      <button class="save" onclick="confirmDraft()">Confirm Draft</button>
+      <button class="danger" onclick="closeDraftModal()">Cancel</button>
+    </div>
+  </div>
+</div>
 
 <script>
 const brandOptions = ["Raw","Smackdown","NXT","NXT 2.0","WCW","ECW","NXT Mutiny"];
 const gmOptions = ["Adam Pearce","Nick Aldis","Shawn Michaels","Ava","Stephanie McMahon","Paul Heyman","William Regal","Mick Foley","Theodore Long","Eric Bischoff","Stacy Keibler","Sensational Sherri","Miss Elizabeth","Mr. Fuji","Bobby \"The Brain\" Heenan","CM Punk","Xavier Woods","Tyler Breeze","Anonymous GM"];
 const budgetOptions = [3000000,4000000,5000000,6000000,7000000];
-
-const fullRoster = [
-{name:"Dirty Dominik Mysterio",gender:"Male",status:"Active",ring:14,pop:48,role:"Heel",classType:"Cruiser",promo:4},
-{name:"AJ Lee",gender:"Female",status:"Active",ring:15,pop:49,role:"Face",classType:"Fighter",promo:5},
-{name:"Akira Tozawa",gender:"Male",status:"Active",ring:8,pop:24,role:"Face",classType:"Cruiser",promo:2},
-{name:"Alba Fyre",gender:"Female",status:"Active",ring:10,pop:31,role:"Heel",classType:"Fighter",promo:2},
-{name:"Aleister Black",gender:"Male",status:"Active",ring:13,pop:39,role:"Heel",classType:"Fighter",promo:2},
-{name:"Alex Shelley",gender:"Male",status:"Active",ring:11,pop:33,role:"Face",classType:"Cruiser",promo:3},
-{name:"Alexa Bliss",gender:"Female",status:"Active",ring:14,pop:44,role:"Face",classType:"Cruiser",promo:4},
-{name:"Andre Chase",gender:"Male",status:"Active",ring:9,pop:28,role:"Face",classType:"Fighter",promo:3},
-{name:"Angel",gender:"Male",status:"Active",ring:9,pop:28,role:"Heel",classType:"Cruiser",promo:2},
-{name:"Angelo Dawkins",gender:"Male",status:"Active",ring:11,pop:34,role:"Face",classType:"Bruiser",promo:3},
-{name:"Apollo Crews",gender:"Male",status:"Active",ring:9,pop:30,role:"Face",classType:"Fighter",promo:2},
-{name:"Arianna Grace",gender:"Female",status:"Active",ring:10,pop:31,role:"Heel",classType:"Specialist",promo:4},
-{name:"Asuka",gender:"Female",status:"Active",ring:15,pop:52,role:"Heel",classType:"Fighter",promo:3},
-{name:"Austin Theory",gender:"Male",status:"Active",ring:12,pop:40,role:"Heel",classType:"Fighter",promo:3},
-{name:"Axiom",gender:"Male",status:"Active",ring:7,pop:24,role:"Face",classType:"Cruiser",promo:2},
-{name:"B-Fab",gender:"Female",status:"Active",ring:5,pop:18,role:"Face",classType:"Fighter",promo:3},
-{name:"Bayley",gender:"Female",status:"Active",ring:15,pop:50,role:"Face",classType:"Fighter",promo:5},
-{name:"Becky Lynch",gender:"Female",status:"Active",ring:17,pop:55,role:"Heel",classType:"Fighter",promo:5},
-{name:"Bianca Belair",gender:"Female",status:"Active",ring:16,pop:53,role:"Face",classType:"Bruiser",promo:4},
-{name:"Brock Lesnar",gender:"Male",status:"Active",ring:18,pop:70,role:"Heel",classType:"Bruiser",promo:3},
-{name:"Bron Breakker",gender:"Male",status:"Active",ring:13,pop:42,role:"Heel",classType:"Bruiser",promo:3},
-{name:"Bronson Reed",gender:"Male",status:"Active",ring:12,pop:38,role:"Heel",classType:"Giant",promo:2},
-{name:"Carmelo Hayes",gender:"Male",status:"Active",ring:14,pop:47,role:"Face",classType:"Cruiser",promo:4},
-{name:"Chad Gable",gender:"Male",status:"Active",ring:13,pop:40,role:"Heel",classType:"Fighter",promo:4},
-{name:"Charlotte Flair",gender:"Female",status:"Active",ring:16,pop:52,role:"Face",classType:"Fighter",promo:4},
-{name:"Chelsea Green",gender:"Female",status:"Active",ring:13,pop:41,role:"Heel",classType:"Specialist",promo:5},
-{name:"CM Punk",gender:"Male",status:"Active",ring:17,pop:55,role:"Face",classType:"Fighter",promo:5},
-{name:"Cody Rhodes",gender:"Male",status:"Active",ring:17,pop:55,role:"Face",classType:"Fighter",promo:5},
-{name:"Damian Priest",gender:"Male",status:"Active",ring:15,pop:45,role:"Face",classType:"Bruiser",promo:4},
-{name:"Drew McIntyre",gender:"Male",status:"Active",ring:17,pop:54,role:"Heel",classType:"Bruiser",promo:4},
-{name:"Ethan Page",gender:"Male",status:"Active",ring:12,pop:36,role:"Heel",classType:"Fighter",promo:4},
-{name:"Finn Balor",gender:"Male",status:"Active",ring:15,pop:50,role:"Face",classType:"Fighter",promo:4},
-{name:"Giulia",gender:"Female",status:"Active",ring:12,pop:38,role:"Heel",classType:"Fighter",promo:3},
-{name:"Grayson Waller",gender:"Male",status:"Active",ring:12,pop:40,role:"Heel",classType:"Fighter",promo:4},
-{name:"Gunther",gender:"Male",status:"Active",ring:16,pop:53,role:"Heel",classType:"Bruiser",promo:4},
-{name:"Ilja Dragunov",gender:"Male",status:"Active",ring:14,pop:42,role:"Face",classType:"Fighter",promo:3},
-{name:"Iyo Sky",gender:"Female",status:"Active",ring:15,pop:50,role:"Face",classType:"Cruiser",promo:4},
-{name:"Jacob Fatu",gender:"Male",status:"Active",ring:14,pop:45,role:"Face",classType:"Bruiser",promo:3},
-{name:"Jade Cargill",gender:"Female",status:"Active",ring:13,pop:45,role:"Heel",classType:"Bruiser",promo:3},
-{name:"Jey Uso",gender:"Male",status:"Active",ring:15,pop:50,role:"Face",classType:"Bruiser",promo:4},
-{name:"Jimmy Uso",gender:"Male",status:"Active",ring:13,pop:45,role:"Face",classType:"Bruiser",promo:3},
-{name:"Joe Hendry",gender:"Male",status:"Active",ring:12,pop:36,role:"Face",classType:"Fighter",promo:4},
-{name:"Johnny Gargano",gender:"Male",status:"Active",ring:14,pop:44,role:"Face",classType:"Bruiser",promo:4},
-{name:"Jordynne Grace",gender:"Female",status:"Active",ring:13,pop:42,role:"Face",classType:"Bruiser",promo:3},
-{name:"Kairi Sane",gender:"Female",status:"Active",ring:13,pop:44,role:"Heel",classType:"Cruiser",promo:3},
-{name:"Kevin Owens",gender:"Male",status:"Active",ring:16,pop:52,role:"Heel",classType:"Fighter",promo:5},
-{name:"Kofi Kingston",gender:"Male",status:"Active",ring:14,pop:48,role:"Heel",classType:"Cruiser",promo:4},
-{name:"LA Knight",gender:"Male",status:"Active",ring:15,pop:50,role:"Face",classType:"Fighter",promo:5},
-{name:"Liv Morgan",gender:"Female",status:"Active",ring:14,pop:48,role:"Heel",classType:"Fighter",promo:4},
-{name:"Logan Paul",gender:"Male",status:"Active",ring:13,pop:45,role:"Heel",classType:"Specialist",promo:5},
-{name:"Lyra Valkyria",gender:"Female",status:"Active",ring:13,pop:42,role:"Face",classType:"Fighter",promo:3},
-{name:"Montez Ford",gender:"Male",status:"Active",ring:14,pop:48,role:"Face",classType:"Cruiser",promo:4},
-{name:"Naomi",gender:"Female",status:"Active",ring:13,pop:44,role:"Heel",classType:"Cruiser",promo:3},
-{name:"Natalya",gender:"Female",status:"Active",ring:14,pop:45,role:"Heel",classType:"Fighter",promo:3},
-{name:"Nia Jax",gender:"Female",status:"Active",ring:13,pop:42,role:"Heel",classType:"Giant",promo:3},
-{name:"Nikki Bella",gender:"Female",status:"Active",ring:16,pop:65,role:"Heel",classType:"Fighter",promo:4},
-{name:"Oba Femi",gender:"Male",status:"Active",ring:12,pop:36,role:"Face",classType:"Giant",promo:2},
-{name:"Penta",gender:"Male",status:"Active",ring:14,pop:46,role:"Face",classType:"Cruiser",promo:3},
-{name:"R-Truth",gender:"Male",status:"Active",ring:10,pop:38,role:"Face",classType:"Fighter",promo:5},
-{name:"Randy Orton",gender:"Male",status:"Active",ring:16,pop:50,role:"Heel",classType:"Bruiser",promo:4},
-{name:"Raquel Rodriguez",gender:"Female",status:"Active",ring:12,pop:39,role:"Heel",classType:"Giant",promo:3},
-{name:"Rey Fenix",gender:"Male",status:"Active",ring:13,pop:40,role:"Face",classType:"Cruiser",promo:3},
-{name:"Rey Mysterio",gender:"Male",status:"Active",ring:13,pop:41,role:"Face",classType:"Cruiser",promo:4},
-{name:"Rhea Ripley",gender:"Female",status:"Active",ring:16,pop:50,role:"Face",classType:"Giant",promo:4},
-{name:"Roman Reigns",gender:"Male",status:"Active",ring:16,pop:52,role:"Heel",classType:"Bruiser",promo:5},
-{name:"Roxanne Perez",gender:"Female",status:"Active",ring:12,pop:39,role:"Heel",classType:"Cruiser",promo:4},
-{name:"Sami Zayn",gender:"Male",status:"Active",ring:15,pop:46,role:"Face",classType:"Fighter",promo:4},
-{name:"Seth Rollins",gender:"Male",status:"Active",ring:16,pop:51,role:"Heel",classType:"Fighter",promo:5},
-{name:"Sheamus",gender:"Male",status:"Active",ring:14,pop:43,role:"Face",classType:"Bruiser",promo:4},
-{name:"Shinsuke Nakamura",gender:"Male",status:"Active",ring:13,pop:38,role:"Face",classType:"Fighter",promo:4},
-{name:"Solo Sikoa",gender:"Male",status:"Active",ring:13,pop:42,role:"Heel",classType:"Giant",promo:4},
-{name:"Stephanie Vaquer",gender:"Female",status:"Active",ring:15,pop:49,role:"Face",classType:"Fighter",promo:4},
-{name:"Tama Tonga",gender:"Male",status:"Active",ring:12,pop:37,role:"Heel",classType:"Giant",promo:3},
-{name:"Tatum Paxley",gender:"Female",status:"Active",ring:12,pop:37,role:"Face",classType:"Specialist",promo:3},
-{name:"The Miz",gender:"Male",status:"Active",ring:13,pop:40,role:"Heel",classType:"Fighter",promo:5},
-{name:"Thea Hail",gender:"Female",status:"Active",ring:10,pop:33,role:"Face",classType:"Fighter",promo:3},
-{name:"Tiffany Stratton",gender:"Female",status:"Active",ring:15,pop:48,role:"Face",classType:"Cruiser",promo:4},
-{name:"Tony D'Angelo",gender:"Male",status:"Active",ring:13,pop:39,role:"Face",classType:"Bruiser",promo:4},
-{name:"Trick Williams",gender:"Male",status:"Active",ring:14,pop:44,role:"Heel",classType:"Fighter",promo:4},
-{name:"Uncle Howdy",gender:"Male",status:"Active",ring:12,pop:38,role:"Face",classType:"Specialist",promo:4},
-{name:"Xavier Woods",gender:"Male",status:"Active",ring:12,pop:38,role:"Heel",classType:"Cruiser",promo:5},
-{name:"Zaria",gender:"Female",status:"Active",ring:13,pop:40,role:"Heel",classType:"Giant",promo:2},
-{name:"Zelina Vega",gender:"Female",status:"Active",ring:12,pop:37,role:"Heel",classType:"Cruiser",promo:4},
-{name:"Zoey Stark",gender:"Female",status:"Active",ring:11,pop:34,role:"Face",classType:"Fighter",promo:2},
-{name:"Matt Cardona",gender:"Male",status:"Active",ring:13,pop:41,role:"Face",classType:"Fighter",promo:4},
-{name:"La Parka",gender:"Male",status:"Active",ring:12,pop:38,role:"Face",classType:"Cruiser",promo:2},
-{name:"Pagano",gender:"Male",status:"Active",ring:12,pop:37,role:"Face",classType:"Bruiser",promo:2}
-];
+const philosophyOptions = ["Balanced Booker","Ratings Chaser","Budget Saver","Women's Division Focus","Chaos Mode"];
+const fullRoster = [{"name": "\"Bad Ass\" Billy Gunn", "gender": "", "status": "Contract", "ring": 17, "pop": 52, "role": "Heel", "classType": "Giant", "promo": 2, "image": ""}, {"name": "\"Dirty\" Dominik Mysterio", "gender": "Male", "status": "Active", "ring": 14, "pop": 48, "role": "Heel", "classType": "Cruiser", "promo": 4, "image": ""}, {"name": "\"Macho Man\" Randy Savage", "gender": "", "status": "Contract", "ring": 20, "pop": 63, "role": "Face", "classType": "Fighter", "promo": 5, "image": ""}, {"name": "\"Mr. Wonderful\" Paul Orndorff", "gender": "", "status": "Contract", "ring": 18, "pop": 56, "role": "Heel", "classType": "Fighter", "promo": 3, "image": "https://i.imgur.com/qooX4RK.png"}, {"name": "\"Ravishing\" Rick Rude", "gender": "", "status": "Contract", "ring": 19, "pop": 59, "role": "Heel", "classType": "Fighter", "promo": 4, "image": "https://i.imgur.com/QXmTjtt.png"}, {"name": "\"Rowdy\" Roddy Piper", "gender": "", "status": "Contract", "ring": 20, "pop": 62, "role": "Heel", "classType": "Fighter", "promo": 5, "image": ""}, {"name": "\"Stone Cold\" Steve Austin", "gender": "", "status": "Contract", "ring": 21, "pop": 67, "role": "Face", "classType": "Bruiser", "promo": 5, "image": "https://i.imgur.com/lbLOcfd.png"}, {"name": "\"Superstar\" Bill Graham", "gender": "", "status": "Contract", "ring": 19, "pop": 58, "role": "Heel", "classType": "Bruiser", "promo": 4, "image": "https://i.imgur.com/qg1LWW1.png"}, {"name": "Abyss", "gender": "", "status": "Contract", "ring": 18, "pop": 56, "role": "Heel", "classType": "Giant", "promo": 2, "image": "https://i.imgur.com/jrA3Cj7.png"}, {"name": "Adam Pearce", "gender": "", "status": "Contract", "ring": 16, "pop": 48, "role": "Face", "classType": "Fighter", "promo": 4, "image": "https://i.imgur.com/L8DoW2o.png"}, {"name": "Afa", "gender": "", "status": "Contract", "ring": 18, "pop": 54, "role": "Heel", "classType": "Giant", "promo": 2, "image": ""}, {"name": "AJ Lee", "gender": "Female", "status": "Active", "ring": 15, "pop": 49, "role": "Face", "classType": "Fighter", "promo": 5, "image": ""}, {"name": "AJ Styles", "gender": "", "status": "Contract", "ring": 22, "pop": 59, "role": "Face", "classType": "Specialist", "promo": 4, "image": ""}, {"name": "Akira Tozawa", "gender": "Male", "status": "Active", "ring": 8, "pop": 24, "role": "Face", "classType": "Cruiser", "promo": 2, "image": ""}, {"name": "Alba Fyre", "gender": "Female", "status": "Active", "ring": 10, "pop": 31, "role": "Heel", "classType": "Fighter", "promo": 2, "image": "https://i.imgur.com/jRLEu5t.png"}, {"name": "Aleister Black", "gender": "Male", "status": "Active", "ring": 13, "pop": 39, "role": "Heel", "classType": "Fighter", "promo": 2, "image": "https://i.imgur.com/iDwa8qN.png"}, {"name": "Alex Shelley", "gender": "Male", "status": "Active", "ring": 11, "pop": 33, "role": "Face", "classType": "Cruiser", "promo": 3, "image": "https://i.imgur.com/wuK70IK.png"}, {"name": "Alexa Bliss", "gender": "Female", "status": "Active", "ring": 14, "pop": 44, "role": "Face", "classType": "Cruiser", "promo": 4, "image": ""}, {"name": "Alundra Blayze", "gender": "", "status": "Contract", "ring": 18, "pop": 54, "role": "Face", "classType": "Fighter", "promo": 4, "image": ""}, {"name": "Andre Chase", "gender": "Male", "status": "Active", "ring": 9, "pop": 28, "role": "Face", "classType": "Fighter", "promo": 3, "image": ""}, {"name": "Andre The Giant", "gender": "", "status": "Contract", "ring": 21, "pop": 64, "role": "Face", "classType": "Giant", "promo": 2, "image": "https://i.imgur.com/dAP6qZ1.png"}, {"name": "Angel", "gender": "Male", "status": "Active", "ring": 9, "pop": 28, "role": "Heel", "classType": "Cruiser", "promo": 2, "image": ""}, {"name": "Angelo Dawkins", "gender": "Male", "status": "Active", "ring": 11, "pop": 34, "role": "Face", "classType": "Bruiser", "promo": 3, "image": ""}, {"name": "Apollo Crews", "gender": "Male", "status": "Active", "ring": 9, "pop": 30, "role": "Face", "classType": "Fighter", "promo": 2, "image": ""}, {"name": "Arianna Grace", "gender": "Female", "status": "Active", "ring": 10, "pop": 31, "role": "Heel", "classType": "Specialist", "promo": 4, "image": ""}, {"name": "Asuka", "gender": "Female", "status": "Active", "ring": 15, "pop": 52, "role": "Heel", "classType": "Fighter", "promo": 3, "image": ""}, {"name": "Austin Theory", "gender": "Male", "status": "Active", "ring": 12, "pop": 40, "role": "Heel", "classType": "Fighter", "promo": 3, "image": "https://i.imgur.com/FasHHMS.png"}, {"name": "Axiom", "gender": "Male", "status": "Active", "ring": 7, "pop": 24, "role": "Face", "classType": "Cruiser", "promo": 2, "image": ""}, {"name": "B-Fab", "gender": "Female", "status": "Active", "ring": 5, "pop": 18, "role": "Face", "classType": "Fighter", "promo": 3, "image": ""}, {"name": "Batista", "gender": "", "status": "Contract", "ring": 20, "pop": 61, "role": "Heel", "classType": "Giant", "promo": 3, "image": ""}, {"name": "Bayley", "gender": "Female", "status": "Active", "ring": 15, "pop": 50, "role": "Face", "classType": "Fighter", "promo": 5, "image": ""}, {"name": "Becky Lynch", "gender": "Female", "status": "Active", "ring": 17, "pop": 55, "role": "Heel", "classType": "Fighter", "promo": 5, "image": ""}, {"name": "Berto", "gender": "", "status": "Active", "ring": 7, "pop": 24, "role": "Heel", "classType": "Cruiser", "promo": 2, "image": ""}, {"name": "Bianca Belair", "gender": "Female", "status": "Active", "ring": 16, "pop": 53, "role": "Face", "classType": "Bruiser", "promo": 4, "image": ""}, {"name": "Big E", "gender": "", "status": "Contract", "ring": 18, "pop": 57, "role": "Face", "classType": "Giant", "promo": 4, "image": ""}, {"name": "Blake Monroe", "gender": "Female", "status": "Active", "ring": 11, "pop": 34, "role": "Heel", "classType": "Specialist", "promo": 3, "image": ""}, {"name": "Boogeyman", "gender": "", "status": "Contract", "ring": 16, "pop": 50, "role": "Heel", "classType": "Specialist", "promo": 1, "image": ""}, {"name": "Booker T", "gender": "", "status": "Contract", "ring": 19, "pop": 58, "role": "Face", "classType": "Fighter", "promo": 4, "image": "https://i.imgur.com/IfjPKeX.png"}, {"name": "Brad Baylor", "gender": "", "status": "Active", "ring": 9, "pop": 29, "role": "Heel", "classType": "Cruiser", "promo": 2, "image": "https://i.imgur.com/t17mmAK.png"}, {"name": "Bray Wyatt", "gender": "", "status": "Contract", "ring": 20, "pop": 60, "role": "Heel", "classType": "Specialist", "promo": 5, "image": ""}, {"name": "Bret \"Hit Man\" Hart", "gender": "", "status": "Contract", "ring": 20, "pop": 60, "role": "Face", "classType": "Fighter", "promo": 4, "image": ""}, {"name": "Brie Bella", "gender": "Female", "status": "Active", "ring": 11, "pop": 36, "role": "Heel", "classType": "Fighter", "promo": 4, "image": ""}, {"name": "British Bulldog", "gender": "", "status": "Contract", "ring": 18, "pop": 55, "role": "Heel", "classType": "Bruiser", "promo": 2, "image": ""}, {"name": "Brock Lesnar", "gender": "", "status": "Active", "ring": 18, "pop": 70, "role": "Heel", "classType": "Bruiser", "promo": 3, "image": ""}, {"name": "Bron Breakker", "gender": "", "status": "Active", "ring": 13, "pop": 42, "role": "Heel", "classType": "Bruiser", "promo": 3, "image": ""}, {"name": "Bronco Nima", "gender": "", "status": "Active", "ring": 10, "pop": 30, "role": "Heel", "classType": "Giant", "promo": 2, "image": "https://i.imgur.com/72LlyC2.png"}, {"name": "Bronson Reed", "gender": "", "status": "Active", "ring": 12, "pop": 38, "role": "Heel", "classType": "Giant", "promo": 2, "image": ""}, {"name": "Brooks Jensen", "gender": "", "status": "Active", "ring": 5, "pop": 20, "role": "Heel", "classType": "Fighter", "promo": 2, "image": "https://i.imgur.com/E6JLxyW.png"}, {"name": "Brutus Creed", "gender": "", "status": "Active", "ring": 11, "pop": 32, "role": "Heel", "classType": "Bruiser", "promo": 2, "image": "https://i.imgur.com/KTv1hUq.png"}, {"name": "Bubba Ray Dudley", "gender": "", "status": "Contract", "ring": 17, "pop": 53, "role": "Heel", "classType": "Bruiser", "promo": 3, "image": ""}, {"name": "Bull Nakano", "gender": "", "status": "Contract", "ring": 18, "pop": 54, "role": "Heel", "classType": "Bruiser", "promo": 2, "image": ""}, {"name": "Cactus Jack", "gender": "", "status": "Contract", "ring": 18, "pop": 56, "role": "Heel", "classType": "Bruiser", "promo": 3, "image": "https://i.imgur.com/ucbJG2A.png"}, {"name": "Candice LeRae", "gender": "Female", "status": "Active", "ring": 11, "pop": 28, "role": "Face", "classType": "Fighter", "promo": 3, "image": ""}, {"name": "Carmelo Hayes", "gender": "", "status": "Active", "ring": 14, "pop": 47, "role": "Face", "classType": "Cruiser", "promo": 4, "image": ""}, {"name": "Chad Gable", "gender": "", "status": "Active", "ring": 13, "pop": 40, "role": "Heel", "classType": "Fighter", "promo": 4, "image": "https://i.imgur.com/mzZzmRv.png"}, {"name": "Channing \"Stacks\" Lorenzo", "gender": "", "status": "Active", "ring": 6, "pop": 24, "role": "Heel", "classType": "Bruiser", "promo": 3, "image": ""}, {"name": "Charlie Dempsey", "gender": "", "status": "Active", "ring": 6, "pop": 23, "role": "Heel", "classType": "Fighter", "promo": 1, "image": "https://i.imgur.com/KJnOwbU.png"}, {"name": "Charlotte Flair", "gender": "Female", "status": "Active", "ring": 16, "pop": 52, "role": "Face", "classType": "Fighter", "promo": 4, "image": ""}, {"name": "Chelsea Green", "gender": "Female", "status": "Active", "ring": 13, "pop": 41, "role": "Heel", "classType": "Specialist", "promo": 5, "image": ""}, {"name": "Chris Sabin", "gender": "", "status": "Active", "ring": 11, "pop": 32, "role": "Face", "classType": "Cruiser", "promo": 3, "image": ""}, {"name": "Chyna", "gender": "", "status": "Contract", "ring": 19, "pop": 59, "role": "Face", "classType": "Giant", "promo": 3, "image": ""}, {"name": "CM Punk", "gender": "", "status": "Active", "ring": 17, "pop": 55, "role": "Face", "classType": "Fighter", "promo": 5, "image": ""}, {"name": "Cody Rhodes", "gender": "", "status": "Active", "ring": 17, "pop": 55, "role": "Face", "classType": "Fighter", "promo": 5, "image": "https://i.imgur.com/iu4ddGq.png"}, {"name": "Cruz Del Toro", "gender": "", "status": "Active", "ring": 9, "pop": 30, "role": "Face", "classType": "Cruiser", "promo": 2, "image": ""}, {"name": "Cutler James", "gender": "", "status": "Active", "ring": 9, "pop": 28, "role": "Heel", "classType": "Giant", "promo": 2, "image": ""}, {"name": "D-Von Dudley", "gender": "", "status": "Contract", "ring": 17, "pop": 52, "role": "Heel", "classType": "Bruiser", "promo": 2, "image": "https://i.imgur.com/QBcjQuV.png"}, {"name": "D'Lo Brown", "gender": "", "status": "Contract", "ring": 16, "pop": 50, "role": "Face", "classType": "Fighter", "promo": 3, "image": ""}, {"name": "Damian Priest", "gender": "", "status": "Active", "ring": 15, "pop": 45, "role": "Face", "classType": "Bruiser", "promo": 4, "image": ""}, {"name": "Danhausen", "gender": "", "status": "Active", "ring": 9, "pop": 30, "role": "Face", "classType": "Specialist", "promo": 4, "image": ""}, {"name": "\"Demon\" Finn Balor", "gender": "", "status": "Contract", "ring": 19, "pop": 58, "role": "Heel", "classType": "Specialist", "promo": 4, "image": ""}, {"name": "Dexter Lumis", "gender": "", "status": "Active", "ring": 10, "pop": 26, "role": "Face", "classType": "Specialist", "promo": 1, "image": "https://i.imgur.com/AJbr2Ys.png"}, {"name": "Diamond Dallas Page", "gender": "", "status": "Contract", "ring": 18, "pop": 56, "role": "Face", "classType": "Fighter", "promo": 4, "image": ""}, {"name": "Diesel", "gender": "", "status": "Contract", "ring": 19, "pop": 58, "role": "Heel", "classType": "Giant", "promo": 3, "image": ""}, {"name": "Dion Lennox", "gender": "", "status": "Active", "ring": 11, "pop": 33, "role": "Heel", "classType": "Fighter", "promo": 2, "image": ""}, {"name": "Doink The Clown", "gender": "", "status": "Contract", "ring": 16, "pop": 49, "role": "Heel", "classType": "Specialist", "promo": 3, "image": ""}, {"name": "Dragon Lee", "gender": "", "status": "Active", "ring": 11, "pop": 31, "role": "Face", "classType": "Cruiser", "promo": 2, "image": ""}, {"name": "Drew McIntyre", "gender": "", "status": "Active", "ring": 17, "pop": 54, "role": "Heel", "classType": "Bruiser", "promo": 4, "image": ""}, {"name": "Dude Love", "gender": "", "status": "Contract", "ring": 17, "pop": 52, "role": "Face", "classType": "Specialist", "promo": 4, "image": ""}, {"name": "Dusty Rhodes", "gender": "", "status": "Contract", "ring": 20, "pop": 61, "role": "Face", "classType": "Fighter", "promo": 5, "image": "https://i.imgur.com/sSSD7on.png"}, {"name": "Eddie Guerrero", "gender": "", "status": "Contract", "ring": 20, "pop": 62, "role": "Face", "classType": "Cruiser", "promo": 5, "image": "https://i.imgur.com/BQ4kzxy.png"}, {"name": "El Grande Americano", "gender": "", "status": "Active", "ring": 11, "pop": 33, "role": "Heel", "classType": "Cruiser", "promo": 2, "image": ""}, {"name": "El Hijo Del Vikingo", "gender": "", "status": "Active", "ring": 13, "pop": 40, "role": "Heel", "classType": "Cruiser", "promo": 2, "image": ""}, {"name": "Eli Knight", "gender": "", "status": "Active", "ring": 9, "pop": 29, "role": "Face", "classType": "Cruiser", "promo": 2, "image": ""}, {"name": "Elio Lefleur", "gender": "", "status": "Active", "ring": 10, "pop": 31, "role": "Face", "classType": "Cruiser", "promo": 2, "image": ""}, {"name": "Elton Prince", "gender": "", "status": "Active", "ring": 9, "pop": 28, "role": "Heel", "classType": "Cruiser", "promo": 3, "image": ""}, {"name": "Eric Bischoff", "gender": "", "status": "Contract", "ring": 14, "pop": 50, "role": "Heel", "classType": "Specialist", "promo": 5, "image": ""}, {"name": "Erick Rowan", "gender": "", "status": "Active", "ring": 11, "pop": 32, "role": "Face", "classType": "Giant", "promo": 2, "image": ""}, {"name": "Erik", "gender": "", "status": "Active", "ring": 12, "pop": 34, "role": "Face", "classType": "Bruiser", "promo": 2, "image": ""}, {"name": "Ethan Page", "gender": "", "status": "Active", "ring": 12, "pop": 36, "role": "Heel", "classType": "Fighter", "promo": 4, "image": ""}, {"name": "Eve Torres", "gender": "", "status": "Contract", "ring": 17, "pop": 53, "role": "Face", "classType": "Fighter", "promo": 3, "image": "https://i.imgur.com/aadpf70.png"}, {"name": "Faarooq", "gender": "", "status": "Contract", "ring": 18, "pop": 55, "role": "Heel", "classType": "Bruiser", "promo": 3, "image": ""}, {"name": "Fallon Henley", "gender": "Female", "status": "Active", "ring": 8, "pop": 26, "role": "Heel", "classType": "Fighter", "promo": 3, "image": ""}, {"name": "Finn Balor", "gender": "", "status": "Active", "ring": 15, "pop": 50, "role": "Face", "classType": "Fighter", "promo": 4, "image": ""}, {"name": "Flammer", "gender": "Female", "status": "Active", "ring": 12, "pop": 38, "role": "Face", "classType": "Cruiser", "promo": 2, "image": ""}, {"name": "Giulia", "gender": "Female", "status": "Active", "ring": 12, "pop": 38, "role": "Heel", "classType": "Fighter", "promo": 3, "image": ""}, {"name": "Goldberg", "gender": "", "status": "Contract", "ring": 19, "pop": 60, "role": "Heel", "classType": "Giant", "promo": 2, "image": ""}, {"name": "Grayson Waller", "gender": "", "status": "Active", "ring": 12, "pop": 40, "role": "Heel", "classType": "Fighter", "promo": 4, "image": ""}, {"name": "Gunther", "gender": "", "status": "Active", "ring": 16, "pop": 53, "role": "Heel", "classType": "Bruiser", "promo": 4, "image": ""}, {"name": "Haku", "gender": "", "status": "Contract", "ring": 17, "pop": 52, "role": "Heel", "classType": "Bruiser", "promo": 2, "image": ""}, {"name": "Hank Walker", "gender": "", "status": "Active", "ring": 6, "pop": 22, "role": "Face", "classType": "Bruiser", "promo": 2, "image": ""}, {"name": "Hollywood Hogan", "gender": "", "status": "Contract", "ring": 20, "pop": 63, "role": "Heel", "classType": "Specialist", "promo": 5, "image": ""}, {"name": "Hulk Hogan", "gender": "", "status": "Contract", "ring": 21, "pop": 65, "role": "Face", "classType": "Fighter", "promo": 5, "image": "https://i.imgur.com/qqHoiPt.png"}, {"name": "Ilja Dragunov", "gender": "", "status": "Active", "ring": 14, "pop": 42, "role": "Face", "classType": "Fighter", "promo": 3, "image": ""}, {"name": "Ivar", "gender": "", "status": "Active", "ring": 12, "pop": 34, "role": "Face", "classType": "Bruiser", "promo": 2, "image": ""}, {"name": "Ivy Nile", "gender": "Female", "status": "Active", "ring": 10, "pop": 30, "role": "Heel", "classType": "Fighter", "promo": 2, "image": "https://i.imgur.com/b40FTOa.png"}, {"name": "Iyo Sky", "gender": "Female", "status": "Active", "ring": 15, "pop": 50, "role": "Face", "classType": "Cruiser", "promo": 4, "image": "https://i.imgur.com/uqXRCCQ.png"}, {"name": "Izzi Dame", "gender": "Female", "status": "Active", "ring": 5, "pop": 20, "role": "Heel", "classType": "Fighter", "promo": 2, "image": "https://i.imgur.com/UA8iCBz.png"}, {"name": "Jackson Drake", "gender": "", "status": "Active", "ring": 11, "pop": 33, "role": "Heel", "classType": "Cruiser", "promo": 2, "image": ""}, {"name": "Jacob Fatu", "gender": "", "status": "Active", "ring": 14, "pop": 45, "role": "Face", "classType": "Bruiser", "promo": 3, "image": "https://i.imgur.com/PkhUHCg.png"}, {"name": "Jacy Jayne", "gender": "Female", "status": "Active", "ring": 9, "pop": 28, "role": "Heel", "classType": "Fighter", "promo": 3, "image": "https://i.imgur.com/PLlt9RU.png"}, {"name": "Jade Cargill", "gender": "Female", "status": "Active", "ring": 13, "pop": 45, "role": "Heel", "classType": "Bruiser", "promo": 3, "image": "https://i.imgur.com/G8IvH8s.png"}, {"name": "Jaida Parker", "gender": "Female", "status": "Active", "ring": 8, "pop": 26, "role": "Face", "classType": "Fighter", "promo": 2, "image": "https://i.imgur.com/DbgEDpI.png"}, {"name": "Jamal", "gender": "", "status": "Contract", "ring": 16, "pop": 50, "role": "Heel", "classType": "Giant", "promo": 2, "image": ""}, {"name": "Jasper Troy", "gender": "", "status": "Active", "ring": 8, "pop": 33, "role": "Heel", "classType": "Giant", "promo": 1, "image": ""}, {"name": "JBL", "gender": "", "status": "Contract", "ring": 18, "pop": 56, "role": "Heel", "classType": "Bruiser", "promo": 4, "image": ""}, {"name": "JC Mateo", "gender": "", "status": "Active", "ring": 12, "pop": 37, "role": "Heel", "classType": "Giant", "promo": 2, "image": "https://i.imgur.com/vmXFPyD.png"}, {"name": "JD McDonagh", "gender": "", "status": "Active", "ring": 11, "pop": 35, "role": "Heel", "classType": "Fighter", "promo": 3, "image": ""}, {"name": "Je'Von Evans", "gender": "", "status": "Active", "ring": 7, "pop": 25, "role": "Face", "classType": "Cruiser", "promo": 2, "image": ""}, {"name": "Jesse \"The Body\" Ventura", "gender": "", "status": "Contract", "ring": 16, "pop": 51, "role": "Heel", "classType": "Fighter", "promo": 5, "image": ""}, {"name": "Jey Uso", "gender": "", "status": "Active", "ring": 15, "pop": 50, "role": "Face", "classType": "Bruiser", "promo": 4, "image": ""}, {"name": "Jim \"The Anvil\" Neidhart", "gender": "", "status": "Contract", "ring": 17, "pop": 52, "role": "Heel", "classType": "Bruiser", "promo": 2, "image": ""}, {"name": "Jimmy Uso", "gender": "", "status": "Active", "ring": 13, "pop": 45, "role": "Face", "classType": "Bruiser", "promo": 3, "image": "https://i.imgur.com/yQVK9di.png"}, {"name": "Joaquin Wilde", "gender": "", "status": "Active", "ring": 8, "pop": 26, "role": "Face", "classType": "Cruiser", "promo": 2, "image": ""}, {"name": "Joe Gacy", "gender": "", "status": "Active", "ring": 10, "pop": 30, "role": "Face", "classType": "Bruiser", "promo": 3, "image": "https://i.imgur.com/HnNazTQ.png"}, {"name": "Joe Hendry", "gender": "", "status": "Active", "ring": 12, "pop": 36, "role": "Face", "classType": "Fighter", "promo": 4, "image": ""}, {"name": "John Cena", "gender": "", "status": "Contract", "ring": 21, "pop": 66, "role": "Face", "classType": "Fighter", "promo": 5, "image": ""}, {"name": "Johnny Gargano", "gender": "", "status": "Active", "ring": 14, "pop": 44, "role": "Face", "classType": "Bruiser", "promo": 4, "image": "https://i.imgur.com/eUd3kCZ.png"}, {"name": "Jordynne Grace", "gender": "Female", "status": "Active", "ring": 13, "pop": 42, "role": "Face", "classType": "Bruiser", "promo": 3, "image": "https://i.imgur.com/hEdY4FE.png"}, {"name": "Josh Briggs", "gender": "", "status": "Active", "ring": 11, "pop": 32, "role": "Heel", "classType": "Bruiser", "promo": 2, "image": ""}, {"name": "Julius Creed", "gender": "", "status": "Active", "ring": 12, "pop": 34, "role": "Heel", "classType": "Bruiser", "promo": 2, "image": ""}, {"name": "Junkyard Dog", "gender": "", "status": "Contract", "ring": 18, "pop": 55, "role": "Face", "classType": "Bruiser", "promo": 3, "image": ""}, {"name": "Kairi Sane", "gender": "Female", "status": "Active", "ring": 13, "pop": 44, "role": "Heel", "classType": "Cruiser", "promo": 3, "image": "https://i.imgur.com/yBwq0Px.png"}, {"name": "Kale Dixon", "gender": "", "status": "Active", "ring": 8, "pop": 27, "role": "Face", "classType": "Fighter", "promo": 2, "image": ""}, {"name": "Kane", "gender": "", "status": "Contract", "ring": 20, "pop": 61, "role": "Heel", "classType": "Giant", "promo": 2, "image": ""}, {"name": "Karmen Petrovic", "gender": "Female", "status": "Active", "ring": 9, "pop": 29, "role": "Face", "classType": "Fighter", "promo": 2, "image": "https://i.imgur.com/haOXjjs.png"}, {"name": "Keanu Carter", "gender": "", "status": "Active", "ring": 9, "pop": 30, "role": "Heel", "classType": "Giant", "promo": 1, "image": ""}, {"name": "Kelani Jordan", "gender": "Female", "status": "Active", "ring": 7, "pop": 24, "role": "Heel", "classType": "Cruiser", "promo": 2, "image": "https://i.imgur.com/BshtVmk.png"}, {"name": "Ken Shamrock", "gender": "", "status": "Contract", "ring": 18, "pop": 55, "role": "Face", "classType": "Fighter", "promo": 2, "image": ""}, {"name": "Kendal Grey", "gender": "Female", "status": "Active", "ring": 10, "pop": 35, "role": "Face", "classType": "Fighter", "promo": 2, "image": ""}, {"name": "Kevin Nash", "gender": "", "status": "Contract", "ring": 19, "pop": 58, "role": "Heel", "classType": "Giant", "promo": 3, "image": ""}, {"name": "Kevin Owens", "gender": "", "status": "Active", "ring": 16, "pop": 52, "role": "Heel", "classType": "Fighter", "promo": 5, "image": "https://i.imgur.com/sQEb1zn.png"}, {"name": "Kiana James", "gender": "Female", "status": "Active", "ring": 9, "pop": 28, "role": "Heel", "classType": "Fighter", "promo": 3, "image": "https://i.imgur.com/1aQ3leE.png"}, {"name": "Kit Wilson", "gender": "", "status": "Active", "ring": 9, "pop": 28, "role": "Heel", "classType": "Cruiser", "promo": 2, "image": "https://i.imgur.com/Kw1M5qR.png"}, {"name": "Kofi Kingston", "gender": "", "status": "Active", "ring": 14, "pop": 48, "role": "Heel", "classType": "Cruiser", "promo": 4, "image": ""}, {"name": "Kurt Angle", "gender": "", "status": "Contract", "ring": 20, "pop": 62, "role": "Face", "classType": "Fighter", "promo": 4, "image": ""}, {"name": "LA Knight", "gender": "", "status": "Active", "ring": 15, "pop": 50, "role": "Face", "classType": "Fighter", "promo": 5, "image": ""}, {"name": "Lainey Reid", "gender": "Female", "status": "Active", "ring": 9, "pop": 30, "role": "Heel", "classType": "Fighter", "promo": 2, "image": ""}, {"name": "Lash Legend", "gender": "Female", "status": "Active", "ring": 10, "pop": 32, "role": "Heel", "classType": "Bruiser", "promo": 3, "image": ""}, {"name": "Lex Luger", "gender": "", "status": "Contract", "ring": 18, "pop": 56, "role": "Heel", "classType": "Giant", "promo": 2, "image": ""}, {"name": "Lexis King", "gender": "", "status": "Active", "ring": 10, "pop": 30, "role": "Heel", "classType": "Fighter", "promo": 3, "image": ""}, {"name": "Lita", "gender": "", "status": "Contract", "ring": 19, "pop": 59, "role": "Face", "classType": "Cruiser", "promo": 4, "image": ""}, {"name": "Liv Morgan", "gender": "Female", "status": "Active", "ring": 14, "pop": 48, "role": "Heel", "classType": "Fighter", "promo": 4, "image": ""}, {"name": "Logan Paul", "gender": "", "status": "Active", "ring": 13, "pop": 45, "role": "Heel", "classType": "Specialist", "promo": 5, "image": ""}, {"name": "Lola Vice", "gender": "Female", "status": "Active", "ring": 9, "pop": 28, "role": "Face", "classType": "Fighter", "promo": 2, "image": ""}, {"name": "Lucien Price", "gender": "", "status": "Active", "ring": 10, "pop": 31, "role": "Face", "classType": "Giant", "promo": 2, "image": ""}, {"name": "Ludwig Kaiser", "gender": "", "status": "Active", "ring": 13, "pop": 42, "role": "Heel", "classType": "Fighter", "promo": 4, "image": ""}, {"name": "Lyra Valkyria", "gender": "Female", "status": "Active", "ring": 13, "pop": 42, "role": "Face", "classType": "Fighter", "promo": 3, "image": ""}, {"name": "Mankind", "gender": "", "status": "Contract", "ring": 19, "pop": 59, "role": "Face", "classType": "Specialist", "promo": 4, "image": ""}, {"name": "Mark Henry", "gender": "", "status": "Contract", "ring": 19, "pop": 58, "role": "Heel", "classType": "Giant", "promo": 2, "image": ""}, {"name": "Maryse", "gender": "", "status": "Contract", "ring": 16, "pop": 50, "role": "Heel", "classType": "Specialist", "promo": 3, "image": ""}, {"name": "Maxxine Dupri", "gender": "Female", "status": "Active", "ring": 7, "pop": 24, "role": "Face", "classType": "Specialist", "promo": 3, "image": ""}, {"name": "Michin", "gender": "Female", "status": "Active", "ring": 11, "pop": 34, "role": "Heel", "classType": "Fighter", "promo": 3, "image": ""}, {"name": "Molly Holly", "gender": "", "status": "Contract", "ring": 16, "pop": 50, "role": "Heel", "classType": "Specialist", "promo": 3, "image": "https://i.imgur.com/htS38nq.png"}, {"name": "Montez Ford", "gender": "", "status": "Active", "ring": 14, "pop": 48, "role": "Face", "classType": "Cruiser", "promo": 4, "image": "https://i.imgur.com/F8sHnAR.png"}, {"name": "Mosh", "gender": "", "status": "Contract", "ring": 15, "pop": 47, "role": "Heel", "classType": "Cruiser", "promo": 2, "image": ""}, {"name": "Mr. Iguana", "gender": "", "status": "Active", "ring": 10, "pop": 31, "role": "Face", "classType": "Specialist", "promo": 2, "image": ""}, {"name": "Mr. Perfect", "gender": "", "status": "Contract", "ring": 20, "pop": 62, "role": "Heel", "classType": "Fighter", "promo": 4, "image": ""}, {"name": "Myles Borne", "gender": "", "status": "Active", "ring": 6, "pop": 22, "role": "Face", "classType": "Fighter", "promo": 2, "image": ""}, {"name": "Naomi", "gender": "Female", "status": "Active", "ring": 13, "pop": 44, "role": "Heel", "classType": "Cruiser", "promo": 3, "image": ""}, {"name": "Natalya", "gender": "Female", "status": "Active", "ring": 14, "pop": 45, "role": "Heel", "classType": "Fighter", "promo": 3, "image": ""}, {"name": "Nathan Frazer", "gender": "", "status": "Active", "ring": 10, "pop": 30, "role": "Face", "classType": "Cruiser", "promo": 2, "image": ""}, {"name": "New Jack", "gender": "", "status": "Contract", "ring": 17, "pop": 53, "role": "Heel", "classType": "Bruiser", "promo": 2, "image": ""}, {"name": "Nia Jax", "gender": "Female", "status": "Active", "ring": 13, "pop": 42, "role": "Heel", "classType": "Giant", "promo": 3, "image": "https://i.imgur.com/fMznLd6.png"}, {"name": "Nick Aldis", "gender": "", "status": "Contract", "ring": 17, "pop": 52, "role": "Heel", "classType": "Fighter", "promo": 3, "image": "https://i.imgur.com/W4kFCc4.png"}, {"name": "Nikki Bella", "gender": "Female", "status": "Active", "ring": 16, "pop": 65, "role": "Heel", "classType": "Fighter", "promo": 4, "image": ""}, {"name": "Nikki Cross", "gender": "Female", "status": "Active", "ring": 11, "pop": 34, "role": "Face", "classType": "Fighter", "promo": 3, "image": ""}, {"name": "Nikkita Lyons", "gender": "Female", "status": "Active", "ring": 8, "pop": 26, "role": "Heel", "classType": "Fighter", "promo": 2, "image": "https://i.imgur.com/DxgIWX7.png"}, {"name": "Noam Dar", "gender": "", "status": "Active", "ring": 11, "pop": 34, "role": "Face", "classType": "Cruiser", "promo": 3, "image": ""}, {"name": "Oba Femi", "gender": "", "status": "Active", "ring": 12, "pop": 36, "role": "Face", "classType": "Giant", "promo": 2, "image": ""}, {"name": "Omos", "gender": "", "status": "Active", "ring": 10, "pop": 30, "role": "Heel", "classType": "Giant", "promo": 1, "image": ""}, {"name": "Original El Grande Americano", "gender": "", "status": "Active", "ring": 10, "pop": 31, "role": "Heel", "classType": "Cruiser", "promo": 2, "image": ""}, {"name": "Osiris Griffin", "gender": "", "status": "Active", "ring": 10, "pop": 31, "role": "Heel", "classType": "Giant", "promo": 1, "image": ""}, {"name": "Otis", "gender": "", "status": "Active", "ring": 11, "pop": 34, "role": "Face", "classType": "Bruiser", "promo": 3, "image": ""}, {"name": "Pat McAfee", "gender": "", "status": "Contract", "ring": 15, "pop": 52, "role": "Face", "classType": "Specialist", "promo": 5, "image": ""}, {"name": "Penta", "gender": "", "status": "Active", "ring": 14, "pop": 46, "role": "Face", "classType": "Cruiser", "promo": 3, "image": ""}, {"name": "Pete Dunne", "gender": "", "status": "Active", "ring": 12, "pop": 34, "role": "Heel", "classType": "Bruiser", "promo": 3, "image": ""}, {"name": "Piper Niven", "gender": "Female", "status": "Active", "ring": 11, "pop": 36, "role": "Heel", "classType": "Giant", "promo": 3, "image": ""}, {"name": "Psycho Clown", "gender": "", "status": "Active", "ring": 11, "pop": 32, "role": "Face", "classType": "Giant", "promo": 3, "image": ""}, {"name": "R-Truth", "gender": "", "status": "Active", "ring": 10, "pop": 38, "role": "Face", "classType": "Fighter", "promo": 5, "image": "https://i.imgur.com/cKCy29C.png"}, {"name": "Randy Orton", "gender": "", "status": "Active", "ring": 16, "pop": 50, "role": "Heel", "classType": "Bruiser", "promo": 4, "image": ""}, {"name": "Raquel Rodriguez", "gender": "Female", "status": "Active", "ring": 12, "pop": 39, "role": "Heel", "classType": "Giant", "promo": 3, "image": "https://i.imgur.com/ZCkjjSL.png"}, {"name": "Razor Ramon", "gender": "", "status": "Contract", "ring": 19, "pop": 60, "role": "Heel", "classType": "Fighter", "promo": 4, "image": "https://i.imgur.com/YuhTmVO.png"}, {"name": "Rey Fenix", "gender": "", "status": "Active", "ring": 13, "pop": 40, "role": "Face", "classType": "Cruiser", "promo": 3, "image": ""}, {"name": "Rey Mysterio", "gender": "", "status": "Active", "ring": 13, "pop": 41, "role": "Face", "classType": "Cruiser", "promo": 4, "image": "https://i.imgur.com/uhoANoP.png"}, {"name": "Rhea Ripley", "gender": "Female", "status": "Active", "ring": 16, "pop": 50, "role": "Face", "classType": "Giant", "promo": 4, "image": ""}, {"name": "Rick Steiner", "gender": "", "status": "Contract", "ring": 17, "pop": 53, "role": "Heel", "classType": "Bruiser", "promo": 2, "image": ""}, {"name": "Ricky Saints", "gender": "", "status": "Active", "ring": 13, "pop": 38, "role": "Heel", "classType": "Fighter", "promo": 4, "image": ""}, {"name": "Ricky Smokes", "gender": "", "status": "Active", "ring": 7, "pop": 24, "role": "Heel", "classType": "Cruiser", "promo": 3, "image": ""}, {"name": "Road Dogg Jesse James", "gender": "", "status": "Contract", "ring": 17, "pop": 55, "role": "Heel", "classType": "Fighter", "promo": 5, "image": ""}, {"name": "Rob Van Dam", "gender": "", "status": "Contract", "ring": 20, "pop": 62, "role": "Face", "classType": "Cruiser", "promo": 4, "image": ""}, {"name": "Roman Reigns", "gender": "", "status": "Active", "ring": 16, "pop": 52, "role": "Heel", "classType": "Bruiser", "promo": 5, "image": ""}, {"name": "Rosey", "gender": "", "status": "Contract", "ring": 16, "pop": 50, "role": "Face", "classType": "Giant", "promo": 2, "image": "https://i.imgur.com/5K8y449.png"}, {"name": "Roxanne Perez", "gender": "Female", "status": "Active", "ring": 12, "pop": 39, "role": "Heel", "classType": "Cruiser", "promo": 4, "image": ""}, {"name": "Rusev", "gender": "", "status": "Active", "ring": 12, "pop": 37, "role": "Heel", "classType": "Giant", "promo": 3, "image": ""}, {"name": "Sami Zayn", "gender": "", "status": "Active", "ring": 15, "pop": 46, "role": "Face", "classType": "Fighter", "promo": 4, "image": ""}, {"name": "Santos Escobar", "gender": "", "status": "Active", "ring": 12, "pop": 36, "role": "Heel", "classType": "Cruiser", "promo": 4, "image": ""}, {"name": "Saquon Shugars", "gender": "", "status": "Active", "ring": 8, "pop": 25, "role": "Heel", "classType": "Bruiser", "promo": 3, "image": ""}, {"name": "Scott Hall", "gender": "", "status": "Contract", "ring": 19, "pop": 60, "role": "Heel", "classType": "Fighter", "promo": 4, "image": ""}, {"name": "Scott Steiner", "gender": "", "status": "Contract", "ring": 19, "pop": 58, "role": "Heel", "classType": "Giant", "promo": 3, "image": ""}, {"name": "Sean Legacy", "gender": "", "status": "Active", "ring": 8, "pop": 28, "role": "Face", "classType": "Cruiser", "promo": 2, "image": "https://i.imgur.com/vHgJvXZ.png"}, {"name": "Sensational Sherri", "gender": "", "status": "Contract", "ring": 17, "pop": 53, "role": "Heel", "classType": "Specialist", "promo": 5, "image": "https://i.imgur.com/MMlHvzD.png"}, {"name": "Seth Rollins", "gender": "", "status": "Active", "ring": 16, "pop": 51, "role": "Heel", "classType": "Fighter", "promo": 5, "image": ""}, {"name": "Shawn Michaels", "gender": "", "status": "Contract", "ring": 21, "pop": 65, "role": "Face", "classType": "Fighter", "promo": 5, "image": ""}, {"name": "Shawn Spears", "gender": "", "status": "Active", "ring": 10, "pop": 31, "role": "Heel", "classType": "Fighter", "promo": 4, "image": ""}, {"name": "Sheamus", "gender": "", "status": "Active", "ring": 14, "pop": 43, "role": "Face", "classType": "Bruiser", "promo": 4, "image": ""}, {"name": "Shiloh Hill", "gender": "", "status": "Active", "ring": 8, "pop": 27, "role": "Face", "classType": "Giant", "promo": 2, "image": ""}, {"name": "Shinsuke Nakamura", "gender": "", "status": "Active", "ring": 13, "pop": 38, "role": "Face", "classType": "Fighter", "promo": 4, "image": ""}, {"name": "Sid Justice", "gender": "", "status": "Contract", "ring": 18, "pop": 55, "role": "Heel", "classType": "Giant", "promo": 2, "image": ""}, {"name": "Sika", "gender": "", "status": "Contract", "ring": 18, "pop": 54, "role": "Heel", "classType": "Giant", "promo": 2, "image": ""}, {"name": "Sol Ruca", "gender": "Female", "status": "Active", "ring": 11, "pop": 35, "role": "Face", "classType": "Cruiser", "promo": 3, "image": ""}, {"name": "Solo Sikoa", "gender": "", "status": "Active", "ring": 13, "pop": 42, "role": "Heel", "classType": "Giant", "promo": 4, "image": ""}, {"name": "Stacy Keibler", "gender": "", "status": "Contract", "ring": 15, "pop": 49, "role": "Face", "classType": "Specialist", "promo": 3, "image": "https://i.imgur.com/WMTWOHS.png"}, {"name": "Stephanie McMahon", "gender": "", "status": "Contract", "ring": 16, "pop": 58, "role": "Heel", "classType": "Specialist", "promo": 5, "image": "https://i.imgur.com/JWuP1VJ.png"}, {"name": "Stephanie Vaquer", "gender": "Female", "status": "Active", "ring": 15, "pop": 49, "role": "Face", "classType": "Fighter", "promo": 4, "image": ""}, {"name": "Syxx", "gender": "", "status": "Contract", "ring": 17, "pop": 53, "role": "Heel", "classType": "Cruiser", "promo": 3, "image": ""}, {"name": "Talla Tonga", "gender": "", "status": "Active", "ring": 11, "pop": 33, "role": "Heel", "classType": "Giant", "promo": 2, "image": "https://i.imgur.com/QCWC65E.png"}, {"name": "Tama", "gender": "", "status": "Contract", "ring": 16, "pop": 50, "role": "Heel", "classType": "Bruiser", "promo": 2, "image": "https://i.imgur.com/YiwyvVs.png"}, {"name": "Tama Tonga", "gender": "", "status": "Active", "ring": 12, "pop": 37, "role": "Heel", "classType": "Giant", "promo": 3, "image": ""}, {"name": "Tank Ledger", "gender": "", "status": "Active", "ring": 9, "pop": 28, "role": "Face", "classType": "Giant", "promo": 2, "image": ""}, {"name": "Tatum Paxley", "gender": "Female", "status": "Active", "ring": 12, "pop": 37, "role": "Face", "classType": "Specialist", "promo": 3, "image": "https://i.imgur.com/RSgQcrS.png"}, {"name": "Tavion Heights", "gender": "", "status": "Active", "ring": 9, "pop": 29, "role": "Face", "classType": "Fighter", "promo": 2, "image": ""}, {"name": "Terry Funk", "gender": "", "status": "Contract", "ring": 20, "pop": 61, "role": "Face", "classType": "Bruiser", "promo": 4, "image": ""}, {"name": "The Fiend Bray Wyatt", "gender": "", "status": "Contract", "ring": 20, "pop": 61, "role": "Heel", "classType": "Specialist", "promo": 5, "image": ""}, {"name": "The Great Khali", "gender": "", "status": "Contract", "ring": 17, "pop": 52, "role": "Heel", "classType": "Giant", "promo": 1, "image": ""}, {"name": "The Great Muta", "gender": "", "status": "Contract", "ring": 19, "pop": 58, "role": "Heel", "classType": "Specialist", "promo": 3, "image": "https://i.imgur.com/27mMolA.png"}, {"name": "The Honky Tonk Man", "gender": "", "status": "Contract", "ring": 16, "pop": 50, "role": "Heel", "classType": "Specialist", "promo": 4, "image": ""}, {"name": "The Hurricane", "gender": "", "status": "Contract", "ring": 16, "pop": 49, "role": "Face", "classType": "Specialist", "promo": 3, "image": ""}, {"name": "The Iron Sheik", "gender": "", "status": "Contract", "ring": 17, "pop": 52, "role": "Heel", "classType": "Bruiser", "promo": 3, "image": "https://i.imgur.com/cp0PM3U.png"}, {"name": "The Miz", "gender": "", "status": "Active", "ring": 13, "pop": 40, "role": "Heel", "classType": "Fighter", "promo": 5, "image": ""}, {"name": "The Rock", "gender": "", "status": "Contract", "ring": 20, "pop": 68, "role": "Face", "classType": "Fighter", "promo": 5, "image": "https://i.imgur.com/15s0na3.png"}, {"name": "The Sandman", "gender": "", "status": "Contract", "ring": 17, "pop": 52, "role": "Face", "classType": "Bruiser", "promo": 2, "image": ""}, {"name": "Thea Hail", "gender": "Female", "status": "Active", "ring": 10, "pop": 33, "role": "Face", "classType": "Fighter", "promo": 3, "image": ""}, {"name": "Thrasher", "gender": "", "status": "Contract", "ring": 15, "pop": 47, "role": "Heel", "classType": "Cruiser", "promo": 2, "image": ""}, {"name": "Tiffany Stratton", "gender": "Female", "status": "Active", "ring": 15, "pop": 48, "role": "Face", "classType": "Cruiser", "promo": 4, "image": "https://i.imgur.com/pcNzEsZ.png"}, {"name": "Tito Santana", "gender": "", "status": "Contract", "ring": 18, "pop": 55, "role": "Face", "classType": "Fighter", "promo": 3, "image": ""}, {"name": "Tonga Loa", "gender": "", "status": "Active", "ring": 11, "pop": 34, "role": "Heel", "classType": "Giant", "promo": 2, "image": "https://i.imgur.com/cn4ZaEX.png"}, {"name": "Tony D'Angelo", "gender": "", "status": "Active", "ring": 13, "pop": 39, "role": "Face", "classType": "Bruiser", "promo": 4, "image": ""}, {"name": "Trick Williams", "gender": "", "status": "Active", "ring": 14, "pop": 44, "role": "Heel", "classType": "Fighter", "promo": 4, "image": ""}, {"name": "Triple H", "gender": "", "status": "Contract", "ring": 21, "pop": 66, "role": "Heel", "classType": "Fighter", "promo": 5, "image": ""}, {"name": "Trish Stratus", "gender": "", "status": "Contract", "ring": 20, "pop": 62, "role": "Face", "classType": "Fighter", "promo": 5, "image": ""}, {"name": "Tyler Bate", "gender": "", "status": "Active", "ring": 11, "pop": 33, "role": "Face", "classType": "Fighter", "promo": 3, "image": ""}, {"name": "Tyler Breeze", "gender": "", "status": "Contract", "ring": 16, "pop": 49, "role": "Heel", "classType": "Specialist", "promo": 3, "image": ""}, {"name": "Ultimate Warrior", "gender": "", "status": "Contract", "ring": 20, "pop": 63, "role": "Face", "classType": "Bruiser", "promo": 3, "image": ""}, {"name": "Umaga", "gender": "", "status": "Contract", "ring": 19, "pop": 58, "role": "Heel", "classType": "Giant", "promo": 1, "image": ""}, {"name": "Uncle Howdy", "gender": "", "status": "Active", "ring": 12, "pop": 38, "role": "Face", "classType": "Specialist", "promo": 4, "image": "https://i.imgur.com/J4cxMLP.png"}, {"name": "Undertaker", "gender": "", "status": "Contract", "ring": 21, "pop": 68, "role": "Heel", "classType": "Specialist", "promo": 4, "image": ""}, {"name": "Uriah Connors", "gender": "", "status": "Active", "ring": 8, "pop": 27, "role": "Heel", "classType": "Fighter", "promo": 2, "image": ""}, {"name": "Vader", "gender": "", "status": "Contract", "ring": 20, "pop": 61, "role": "Heel", "classType": "Giant", "promo": 2, "image": ""}, {"name": "Victoria", "gender": "", "status": "Contract", "ring": 18, "pop": 55, "role": "Heel", "classType": "Fighter", "promo": 3, "image": ""}, {"name": "Wade Barrett", "gender": "", "status": "Contract", "ring": 17, "pop": 54, "role": "Heel", "classType": "Bruiser", "promo": 4, "image": ""}, {"name": "Wendy Choo", "gender": "Female", "status": "Active", "ring": 9, "pop": 29, "role": "Heel", "classType": "Specialist", "promo": 2, "image": ""}, {"name": "William Regal", "gender": "", "status": "Contract", "ring": 19, "pop": 57, "role": "Heel", "classType": "Fighter", "promo": 4, "image": ""}, {"name": "Wren Sinclair", "gender": "Female", "status": "Active", "ring": 11, "pop": 34, "role": "Face", "classType": "Fighter", "promo": 2, "image": ""}, {"name": "X-Pac", "gender": "", "status": "Contract", "ring": 18, "pop": 56, "role": "Heel", "classType": "Cruiser", "promo": 4, "image": ""}, {"name": "Xavier Woods", "gender": "", "status": "Active", "ring": 12, "pop": 38, "role": "Heel", "classType": "Cruiser", "promo": 5, "image": ""}, {"name": "Yokozuna", "gender": "", "status": "Contract", "ring": 20, "pop": 62, "role": "Heel", "classType": "Giant", "promo": 1, "image": ""}, {"name": "Zaria", "gender": "Female", "status": "Active", "ring": 13, "pop": 40, "role": "Heel", "classType": "Giant", "promo": 2, "image": ""}, {"name": "Zelina Vega", "gender": "Female", "status": "Active", "ring": 12, "pop": 37, "role": "Heel", "classType": "Cruiser", "promo": 4, "image": "https://i.imgur.com/fZozWoD.png"}, {"name": "Zoey Stark", "gender": "Female", "status": "Active", "ring": 11, "pop": 34, "role": "Face", "classType": "Fighter", "promo": 2, "image": ""}, {"name": "Skylar Raye", "gender": "Female", "status": "Active", "ring": 7, "pop": 25, "role": "Heel", "classType": "Specialist", "promo": 2, "image": ""}, {"name": "Matt Cardona", "gender": "", "status": "Active", "ring": 13, "pop": 41, "role": "Face", "classType": "Fighter", "promo": 4, "image": ""}, {"name": "La Parka", "gender": "", "status": "Active", "ring": 12, "pop": 38, "role": "Face", "classType": "Cruiser", "promo": 2, "image": ""}, {"name": "Pagano", "gender": "", "status": "Active", "ring": 12, "pop": 37, "role": "Face", "classType": "Bruiser", "promo": 2, "image": ""}, {"name": "Royce Keys", "gender": "", "status": "Active", "ring": 11, "pop": 34, "role": "Heel", "classType": "Giant", "promo": 2, "image": ""}, {"name": "Dave the Clown", "gender": "", "status": "Active", "ring": 11, "pop": 34, "role": "Heel", "classType": "Bruiser", "promo": 2, "image": ""}, {"name": "Murder Clown", "gender": "", "status": "Active", "ring": 11, "pop": 34, "role": "Heel", "classType": "Giant", "promo": 1, "image": ""}, {"name": "Bravo Americano", "gender": "", "status": "Active", "ring": 8, "pop": 28, "role": "Heel", "classType": "Cruiser", "promo": 2, "image": ""}, {"name": "Rayo Americano", "gender": "", "status": "Active", "ring": 8, "pop": 28, "role": "Heel", "classType": "Cruiser", "promo": 2, "image": ""}, {"name": "Niko Vance", "gender": "", "status": "Active", "ring": 10, "pop": 31, "role": "Heel", "classType": "Bruiser", "promo": 2, "image": ""}, {"name": "Kali Armstrong", "gender": "Female", "status": "Active", "ring": 5, "pop": 24, "role": "Heel", "classType": "Fighter", "promo": 2, "image": ""}, {"name": "Jack Cartwheel", "gender": "", "status": "Active", "ring": 5, "pop": 23, "role": "Face", "classType": "Cruiser", "promo": 2, "image": ""}, {"name": "Cappuccino Jones", "gender": "", "status": "Active", "ring": 5, "pop": 23, "role": "Face", "classType": "Cruiser", "promo": 2, "image": ""}, {"name": "It's Gal", "gender": "", "status": "Active", "ring": 5, "pop": 23, "role": "Heel", "classType": "Specialist", "promo": 2, "image": ""}, {"name": "Tyriek Igwe", "gender": "", "status": "Active", "ring": 9, "pop": 30, "role": "Heel", "classType": "Bruiser", "promo": 2, "image": ""}, {"name": "Tyson Dupont", "gender": "", "status": "Active", "ring": 9, "pop": 30, "role": "Heel", "classType": "Bruiser", "promo": 2, "image": ""}, {"name": "Sting", "gender": "", "status": "Contract", "ring": 20, "pop": 62, "role": "Face", "classType": "Specialist", "promo": 4, "image": ""}];
 
 let data = { setup:{}, roster:[], feuds:[], draftHistory:[] };
+let activeBrand = "";
+let selectedDraftName = "";
 
-function money(n){ return "$" + Number(n || 0).toLocaleString(); }
+function money(n) { return "$" + Number(n || 0).toLocaleString(); }
+function escapeHtml(s) { return String(s ?? "").replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m])); }
+function imageBlock(w) { return w.image ? `<img src="${w.image}" alt="${escapeHtml(w.name)}" onerror="this.parentElement.innerHTML='No Image'">` : "No Image"; }
 
-function populateSetupDropdowns(){
-  [1,2,3].forEach(i=>{
+function populateSetupDropdowns() {
+  [1,2,3].forEach(i => {
     document.getElementById("brand"+i).innerHTML = `<option value="">Select Brand</option>` + brandOptions.map(x=>`<option>${x}</option>`).join("");
     document.getElementById("gm"+i).innerHTML = `<option value="">Select GM</option>` + gmOptions.map(x=>`<option>${x}</option>`).join("");
     document.getElementById("budget"+i).innerHTML = budgetOptions.map(x=>`<option value="${x}">${money(x)}</option>`).join("");
+    document.getElementById("philosophy"+i).innerHTML = philosophyOptions.map(x=>`<option>${x}</option>`).join("");
   });
 }
 
@@ -253,134 +203,302 @@ function showTab(tab) {
 }
 
 function saveSetup() {
-  const brands = [1,2,3].map(i => ({
-    name: document.getElementById("brand"+i).value,
-    gm: document.getElementById("gm"+i).value,
-    startingBudget: Number(document.getElementById("budget"+i).value),
-    remainingBudget: data.setup.brands?.[i-1]?.remainingBudget ?? Number(document.getElementById("budget"+i).value)
-  })).filter(b => b.name && b.gm);
+  const oldByBrand = Object.fromEntries((data.setup.brands || []).map(b => [b.name,b]));
+  const brands = [1,2,3].map(i => {
+    const name = document.getElementById("brand"+i).value;
+    const budget = Number(document.getElementById("budget"+i).value);
+    const old = oldByBrand[name];
+    return {
+      name,
+      gm: document.getElementById("gm"+i).value,
+      startingBudget: budget,
+      remainingBudget: old ? old.remainingBudget : budget,
+      philosophy: document.getElementById("philosophy"+i).value
+    };
+  }).filter(b => b.name && b.gm);
 
   const brandNames = brands.map(b=>b.name);
   const gmNames = brands.map(b=>b.gm);
-
   if (new Set(brandNames).size !== brandNames.length) return alert("Each brand can only be selected once.");
   if (new Set(gmNames).size !== gmNames.length) return alert("Each GM can only be selected once.");
-
   data.setup = { seasonName: document.getElementById("seasonName").value, brands };
-  saveData();
-  renderAll();
-  alert("League setup saved!");
+  if (!activeBrand && brands.length) activeBrand = brands[0].name;
+  saveData(); renderAll(); alert("League setup saved!");
 }
 
-function renderBrandDropdowns() {
-  const brands = data.setup.brands || [];
-  ["draftBrand","feudBrand"].forEach(id=>{
-    const drop = document.getElementById(id);
-    drop.innerHTML = brands.map(b=>`<option value="${b.name}">${b.name} - ${b.gm}</option>`).join("");
-  });
+function getDraftedNames() { return data.roster.map(w => w.name); }
+function availableRoster() {
+  const drafted = getDraftedNames();
+  return fullRoster.filter(w => w.status === "Active" && !drafted.includes(w.name));
 }
 
-function renderBudgetDisplay(){
+function classCounter(cls) {
+  if (cls === "Cruiser") return "Giant";
+  if (cls === "Giant") return "Cruiser";
+  if (cls === "Fighter") return "Bruiser";
+  if (cls === "Bruiser") return "Fighter";
+  return "Specialist";
+}
+
+function analyzeBrand(brandName) {
+  const roster = data.roster.filter(w => w.brand === brandName);
+  const count = (field, val) => roster.filter(w => (w[field] || "") === val).length;
+  const men = count("gender","Male"), women = count("gender","Female");
+  const faces = count("role","Face"), heels = count("role","Heel");
+  const classes = {};
+  ["Cruiser","Giant","Fighter","Bruiser","Specialist"].forEach(c => classes[c] = count("classType",c));
+  const avgPop = roster.length ? Math.round(roster.reduce((a,w)=>a+w.pop,0)/roster.length) : 0;
+  return { roster, men, women, faces, heels, classes, avgPop };
+}
+
+function scoreWrestlerForBrand(w, brandName) {
+  const brand = (data.setup.brands || []).find(b => b.name === brandName) || {};
+  const a = analyzeBrand(brandName);
+  let score = 0;
+  let reasons = [];
+
+  // Popularity baseline.
+  score += Math.floor(w.pop / 10);
+  reasons.push(`Popularity adds +${Math.floor(w.pop/10)}`);
+
+  // Gender balance.
+  if (w.gender === "Female" && a.women <= a.men / 2) { score += 12; reasons.push("Needs more women +12"); }
+  if (w.gender === "Male" && a.men <= a.women / 2) { score += 8; reasons.push("Needs more men +8"); }
+
+  // Face/heel balance.
+  if (w.role === "Face" && a.faces < a.heels) { score += 8; reasons.push("Needs faces +8"); }
+  if (w.role === "Heel" && a.heels < a.faces) { score += 8; reasons.push("Needs heels +8"); }
+
+  // Class pairing logic.
+  const counterpart = classCounter(w.classType);
+  if ((a.classes[counterpart] || 0) > (a.classes[w.classType] || 0)) {
+    score += 14; reasons.push(`${w.classType} pairs with existing ${counterpart} +14`);
+  }
+  if ((a.classes[w.classType] || 0) === 0) { score += 7; reasons.push(`No ${w.classType} yet +7`); }
+  if ((a.classes[w.classType] || 0) >= 3) { score -= 8; reasons.push(`Already heavy on ${w.classType} -8`); }
+
+  // Specialists for promos.
+  if (w.classType === "Specialist" && (a.classes.Specialist || 0) === 0) { score += 9; reasons.push("First Specialist +9"); }
+  if (w.promo >= 5 && data.roster.filter(x=>x.brand===brandName && x.promo>=5).length < 2) { score += 6; reasons.push("Strong promo skill +6"); }
+
+  // Philosophy weights.
+  if (brand.philosophy === "Ratings Chaser") { score += Math.floor(w.pop / 5); reasons.push("Ratings Chaser bonus"); }
+  if (brand.philosophy === "Women's Division Focus" && w.gender === "Female") { score += 15; reasons.push("Women's Division Focus +15"); }
+  if (brand.philosophy === "Budget Saver" && w.pop <= 38) { score += 7; reasons.push("Budget Saver value pick +7"); }
+  if (brand.philosophy === "Chaos Mode") { score += (w.promo * 2) + (w.classType === "Specialist" ? 8 : 0); reasons.push("Chaos Mode entertainment bonus"); }
+
+  return { score, reasons };
+}
+
+function stars(score) {
+  if (score >= 34) return "★★★★★";
+  if (score >= 25) return "★★★★";
+  if (score >= 16) return "★★★";
+  if (score >= 8) return "★★";
+  return "★";
+}
+
+function renderBudgetDisplay() {
   const area = document.getElementById("budgetDisplay");
-  area.innerHTML = (data.setup.brands || []).map(b=>`
+  if (!area) return;
+  area.innerHTML = (data.setup.brands || []).map(b => `
     <div class="budget-box">
-      <strong>${b.name}</strong><br>
-      GM: ${b.gm}<br>
+      <strong>${escapeHtml(b.name)}</strong><br>
+      GM: ${escapeHtml(b.gm)}<br>
+      Style: ${escapeHtml(b.philosophy || "Balanced Booker")}<br>
       Starting: ${money(b.startingBudget)}<br>
       Remaining: <strong>${money(b.remainingBudget)}</strong>
     </div>
   `).join("");
 }
 
-function renderAvailableRoster(){
-  const search = document.getElementById("searchBox")?.value?.toLowerCase() || "";
-  const draftedNames = data.roster.map(w=>w.name);
-  const available = fullRoster
-    .filter(w => w.status === "Active")
-    .filter(w => !draftedNames.includes(w.name))
-    .filter(w => JSON.stringify(w).toLowerCase().includes(search))
-    .sort((a,b)=>b.pop-a.pop);
+function renderBrandDropdowns() {
+  const brands = data.setup.brands || [];
+  ["feudBrand","modalBrand","recommendBrand"].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.innerHTML = brands.map(b => `<option value="${escapeHtml(b.name)}">${escapeHtml(b.name)} - ${escapeHtml(b.gm)}</option>`).join("");
+  });
+  if (document.getElementById("recommendBrand") && activeBrand) document.getElementById("recommendBrand").value = activeBrand;
+}
 
-  const select = document.getElementById("availableRoster");
-  select.innerHTML = available.map(w=>`
-    <option value="${w.name}">
-      ${w.name} | ${w.gender} | ${w.role} | ${w.classType} | Pop ${w.pop}
-    </option>
+function renderRecommendations() {
+  const brandName = document.getElementById("recommendBrand")?.value || activeBrand || data.setup.brands?.[0]?.name;
+  activeBrand = brandName || activeBrand;
+  const box = document.getElementById("recommendations");
+  if (!box) return;
+  if (!brandName) { box.innerHTML = `<p class="small">Save setup first.</p>`; return; }
+
+  const recs = availableRoster()
+    .map(w => ({ ...w, fit: scoreWrestlerForBrand(w, brandName) }))
+    .sort((a,b) => b.fit.score - a.fit.score || b.pop - a.pop)
+    .slice(0,5);
+
+  box.innerHTML = recs.map(w => `
+    <div class="recommendation-item">
+      <strong>${escapeHtml(w.name)}</strong><br>
+      <span class="stars">${stars(w.fit.score)}</span>
+      <span class="small"> Fit Score: ${w.fit.score}</span><br>
+      <span class="pill">${escapeHtml(w.role)}</span><span class="pill">${escapeHtml(w.classType)}</span><span class="pill">${escapeHtml(w.gender || "Unknown")}</span>
+      <p class="small">${escapeHtml(w.fit.reasons.slice(0,3).join(" • "))}</p>
+    </div>
   `).join("");
 }
 
-function showSelectedSuperstar(){
-  const name = document.getElementById("availableRoster").value;
-  const w = fullRoster.find(x=>x.name===name);
-  if (!w) return;
+function renderDraftRoom() {
+  renderBudgetDisplay(); renderBrandDropdowns(); renderRecommendations();
+  const board = document.getElementById("draftCards");
+  if (!board) return;
+  const brandName = document.getElementById("recommendBrand")?.value || activeBrand || data.setup.brands?.[0]?.name || "";
+  const search = (document.getElementById("searchBox")?.value || "").toLowerCase();
+  const fg = document.getElementById("filterGender")?.value || "";
+  const fc = document.getElementById("filterClass")?.value || "";
+  const fr = document.getElementById("filterRole")?.value || "";
+  const sortMode = document.getElementById("sortMode")?.value || "recommended";
 
-  document.getElementById("selectedCard").innerHTML = `
-    <h3>${w.name}</h3>
-    <span class="pill">${w.gender}</span>
-    <span class="pill">${w.role}</span>
-    <span class="pill">${w.classType}</span>
-    <p>Popularity: ${w.pop}</p>
-    <p>Ring Level: ${w.ring}</p>
-    <p>Promo Skill: ${w.promo}</p>
-  `;
+  let list = availableRoster().filter(w => {
+    const genderMatch = !fg || (fg === "Unknown" ? !w.gender : w.gender === fg);
+    return genderMatch &&
+      (!fc || w.classType === fc) &&
+      (!fr || w.role === fr) &&
+      JSON.stringify(w).toLowerCase().includes(search);
+  }).map(w => ({ ...w, fit: scoreWrestlerForBrand(w, brandName) }));
+
+  list.sort((a,b) => {
+    if (sortMode === "pop") return b.pop - a.pop;
+    if (sortMode === "promo") return b.promo - a.promo;
+    if (sortMode === "ring") return b.ring - a.ring;
+    if (sortMode === "name") return a.name.localeCompare(b.name);
+    return b.fit.score - a.fit.score || b.pop - a.pop;
+  });
+
+  board.innerHTML = list.map(w => `
+    <div class="wrestler-card">
+      <div class="wrestler-img">${imageBlock(w)}</div>
+      <div class="wrestler-body">
+        <h3>${escapeHtml(w.name)}</h3>
+        <span class="pill">${escapeHtml(w.gender || "Unknown")}</span>
+        <span class="pill">${escapeHtml(w.role)}</span>
+        <span class="pill">${escapeHtml(w.classType)}</span>
+        <div class="metrics">
+          Popularity: ${w.pop}<br>
+          Ring Level: ${w.ring}<br>
+          Promo Skill: ${w.promo}<br>
+          Fit: <span class="stars">${stars(w.fit.score)}</span> (${w.fit.score})
+        </div>
+        <p class="small">${escapeHtml(w.fit.reasons.slice(0,2).join(" • "))}</p>
+      </div>
+      <div class="card-actions">
+        <button class="save" onclick="openDraftModal('${escapeHtml(w.name).replace(/'/g, "\\'")}')">Draft</button>
+      </div>
+    </div>
+  `).join("");
 }
 
-function draftSelectedSuperstar(){
-  const name = document.getElementById("availableRoster").value;
-  const brandName = document.getElementById("draftBrand").value;
-  const cost = Number(document.getElementById("draftCost").value);
+function openDraftModal(name) {
+  selectedDraftName = name;
+  const w = fullRoster.find(x => x.name === name);
+  if (!w) return;
+  document.getElementById("modalTitle").textContent = "Draft " + w.name;
+  document.getElementById("modalDetails").innerHTML = `
+    <div class="grid">
+      <div class="wrestler-img">${imageBlock(w)}</div>
+      <div>
+        <span class="pill">${escapeHtml(w.gender || "Unknown")}</span>
+        <span class="pill">${escapeHtml(w.role)}</span>
+        <span class="pill">${escapeHtml(w.classType)}</span>
+        <p>Popularity: ${w.pop}<br>Ring Level: ${w.ring}<br>Promo: ${w.promo}</p>
+      </div>
+    </div>
+  `;
+  renderBrandDropdowns();
+  document.getElementById("modalCost").value = "";
+  document.getElementById("draftModal").classList.add("show");
+}
 
-  const wrestler = fullRoster.find(w=>w.name===name);
-  const brand = data.setup.brands.find(b=>b.name===brandName);
+function closeDraftModal() { document.getElementById("draftModal").classList.remove("show"); }
 
-  if (!wrestler) return alert("Select a superstar first.");
-  if (wrestler.status !== "Active") return alert("Contract wrestlers cannot be drafted.");
+function confirmDraft() {
+  const w = fullRoster.find(x => x.name === selectedDraftName);
+  const brandName = document.getElementById("modalBrand").value;
+  const cost = Number(document.getElementById("modalCost").value);
+  const brand = data.setup.brands.find(b => b.name === brandName);
+  if (!w) return alert("No superstar selected.");
+  if (w.status !== "Active") return alert("Contract wrestlers cannot be drafted.");
   if (!brand) return alert("Select a brand.");
   if (!cost || cost <= 0) return alert("Enter the superstar cost.");
   if (cost > brand.remainingBudget) return alert(`${brand.name} only has ${money(brand.remainingBudget)} left.`);
 
   brand.remainingBudget -= cost;
-
-  data.roster.push({...wrestler, brand:brand.name, cost});
-  data.draftHistory.push({
-    pick:data.draftHistory.length + 1,
-    brand:brand.name,
-    superstar:wrestler.name,
-    cost,
-    remainingBudget:brand.remainingBudget
-  });
-
-  document.getElementById("draftCost").value = "";
-  saveData();
-  renderAll();
+  data.roster.push({ ...w, brand: brand.name, cost, champion:"No", condition:"Active", notes:"" });
+  data.draftHistory.push({ pick:data.draftHistory.length+1, brand:brand.name, superstar:w.name, cost, remainingBudget:brand.remainingBudget });
+  activeBrand = brand.name;
+  closeDraftModal(); saveData(); renderAll();
 }
 
-function renderRoster() {
-  const area = document.getElementById("rosterCards");
-  area.innerHTML = "";
-
-  (data.setup.brands || []).forEach(b => {
-    const members = data.roster.filter(w => w.brand === b.name);
-    area.innerHTML += `
-      <h3>${b.name} — GM: ${b.gm} — Remaining: ${money(b.remainingBudget)}</h3>
-      <table>
-        <thead><tr><th>Name</th><th>Gender</th><th>Role</th><th>Class</th><th>Popularity</th><th>Cost</th></tr></thead>
-        <tbody>
-          ${members.map(w => `
-            <tr>
-              <td>${w.name}</td><td>${w.gender}</td><td>${w.role}</td><td>${w.classType}</td><td>${w.pop}</td><td>${money(w.cost)}</td>
-            </tr>
-          `).join("")}
-        </tbody>
-      </table>
-    `;
-  });
+function renderBrandTabs() {
+  const tabs = document.getElementById("brandTabs");
+  if (!tabs) return;
+  const brands = data.setup.brands || [];
+  if (!activeBrand && brands.length) activeBrand = brands[0].name;
+  tabs.innerHTML = brands.map(b => `<button class="${b.name===activeBrand?'active':''}" onclick="activeBrand='${escapeHtml(b.name).replace(/'/g,"\\'")}'; renderBrandDashboard(); renderBrandTabs();">${escapeHtml(b.name)}</button>`).join("");
 }
 
-function renderHistory(){
-  document.getElementById("historyTable").innerHTML = data.draftHistory.map(h=>`
-    <tr><td>${h.pick}</td><td>${h.brand}</td><td>${h.superstar}</td><td>${money(h.cost)}</td><td>${money(h.remainingBudget)}</td></tr>
-  `).join("");
+function renderBrandDashboard() {
+  const area = document.getElementById("brandDashboard");
+  if (!area) return;
+  const brand = (data.setup.brands || []).find(b => b.name === activeBrand) || (data.setup.brands || [])[0];
+  if (!brand) { area.innerHTML = `<p>Save your league setup first.</p>`; return; }
+  activeBrand = brand.name;
+  const a = analyzeBrand(brand.name);
+  const feuds = data.feuds.filter(f => f.brand === brand.name);
+
+  area.innerHTML = `
+    <h2>${escapeHtml(brand.name)} <span class="small">GM: ${escapeHtml(brand.gm)} • ${escapeHtml(brand.philosophy || "Balanced Booker")}</span></h2>
+    <div class="grid">
+      <div class="stat-box"><strong>${a.roster.length}</strong><br>Roster Size</div>
+      <div class="stat-box"><strong>${money(brand.remainingBudget)}</strong><br>Remaining Budget</div>
+      <div class="stat-box"><strong>${a.avgPop}</strong><br>Average Popularity</div>
+      <div class="stat-box"><strong>${a.faces} / ${a.heels}</strong><br>Faces / Heels</div>
+      <div class="stat-box"><strong>${a.men} / ${a.women}</strong><br>Men / Women</div>
+    </div>
+
+    <h3>Class Balance</h3>
+    <div>
+      ${Object.entries(a.classes).map(([k,v]) => `<span class="pill">${k}: ${v}</span>`).join("")}
+    </div>
+
+    <h3>Roster Cards</h3>
+    <div class="wrestler-grid">
+      ${a.roster.map(w => `
+        <div class="wrestler-card">
+          <div class="wrestler-img">${imageBlock(w)}</div>
+          <div class="wrestler-body">
+            <h3>${escapeHtml(w.name)}</h3>
+            <span class="pill">${escapeHtml(w.gender || "Unknown")}</span>
+            <span class="pill">${escapeHtml(w.role)}</span>
+            <span class="pill">${escapeHtml(w.classType)}</span>
+            <div class="metrics">
+              Popularity: ${w.pop}<br>
+              Ring: ${w.ring} | Promo: ${w.promo}<br>
+              Cost: ${money(w.cost)}<br>
+              Champion: ${escapeHtml(w.champion || "No")}<br>
+              Status: ${escapeHtml(w.condition || "Active")}
+            </div>
+          </div>
+        </div>
+      `).join("")}
+    </div>
+
+    <h3>Current Feuds</h3>
+    ${feuds.length ? `<table><thead><tr><th>Feud</th><th>Notes</th></tr></thead><tbody>${feuds.map(f => `<tr><td>${escapeHtml(f.one)} vs ${escapeHtml(f.two)}</td><td>${escapeHtml(f.notes)}</td></tr>`).join("")}</tbody></table>` : `<p class="small">No feuds logged for this brand yet.</p>`}
+  `;
+}
+
+function renderHistory() {
+  const table = document.getElementById("historyTable");
+  if (!table) return;
+  table.innerHTML = data.draftHistory.map(h => `<tr><td>${h.pick}</td><td>${escapeHtml(h.brand)}</td><td>${escapeHtml(h.superstar)}</td><td>${money(h.cost)}</td><td>${money(h.remainingBudget)}</td></tr>`).join("");
 }
 
 function addFeud() {
@@ -395,57 +513,49 @@ function addFeud() {
   document.getElementById("feudOne").value = "";
   document.getElementById("feudTwo").value = "";
   document.getElementById("feudNotes").value = "";
-  saveData();
-  renderAll();
+  saveData(); renderAll();
 }
 
 function renderFeuds() {
-  document.getElementById("feudTable").innerHTML = data.feuds.map(f=>`
-    <tr><td>${f.brand}</td><td>${f.one} vs ${f.two}</td><td>${f.notes}</td></tr>
-  `).join("");
+  const table = document.getElementById("feudTable");
+  if (!table) return;
+  table.innerHTML = data.feuds.map(f => `<tr><td>${escapeHtml(f.brand)}</td><td>${escapeHtml(f.one)} vs ${escapeHtml(f.two)}</td><td>${escapeHtml(f.notes)}</td></tr>`).join("");
 }
 
 function renderAll() {
-  renderBrandDropdowns();
-  renderBudgetDisplay();
-  renderAvailableRoster();
-  renderRoster();
-  renderHistory();
-  renderFeuds();
+  renderBrandDropdowns(); renderBudgetDisplay(); renderDraftRoom(); renderBrandTabs(); renderBrandDashboard(); renderHistory(); renderFeuds();
 }
 
 function saveData() {
-  localStorage.setItem("mygmFamilyTrackerV2", JSON.stringify(data));
+  localStorage.setItem("mygmFamilyTrackerV3", JSON.stringify(data));
 }
 
 function loadData() {
   populateSetupDropdowns();
-  const saved = localStorage.getItem("mygmFamilyTrackerV2");
+  const saved = localStorage.getItem("mygmFamilyTrackerV3");
   if (saved) data = JSON.parse(saved);
-
   document.getElementById("seasonName").value = data.setup.seasonName || "";
-
   if (data.setup.brands) {
-    data.setup.brands.forEach((b,idx)=>{
-      const i = idx+1;
+    data.setup.brands.forEach((b,idx) => {
+      const i = idx + 1;
       document.getElementById("brand"+i).value = b.name || "";
       document.getElementById("gm"+i).value = b.gm || "";
       document.getElementById("budget"+i).value = b.startingBudget || 3000000;
+      document.getElementById("philosophy"+i).value = b.philosophy || "Balanced Booker";
     });
+    activeBrand = data.setup.brands[0]?.name || "";
   }
-
   renderAll();
 }
 
 function resetData() {
   if (confirm("This will erase your saved MyGM season on this browser. Are you sure?")) {
-    localStorage.removeItem("mygmFamilyTrackerV2");
+    localStorage.removeItem("mygmFamilyTrackerV3");
     location.reload();
   }
 }
 
 loadData();
 </script>
-
 </body>
 </html>
