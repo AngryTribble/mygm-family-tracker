@@ -39,8 +39,8 @@
     .brand-tabs button.active,.sub-tabs button.active { background:var(--gold); color:#111827; }
     .wrestler-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr)); gap:16px; margin-top:16px; }
     .wrestler-card { background:#0f172a; border:1px solid var(--line); border-radius:16px; overflow:hidden; display:flex; flex-direction:column; min-height:360px; }
-    .wrestler-img { height:180px; background:#111827; display:flex; align-items:center; justify-content:center; color:var(--muted); font-weight:700; }
-    .wrestler-img img { width:100%; height:100%; object-fit:cover; }
+    .wrestler-img { height:180px; background:#111827; display:flex; align-items:center; justify-content:center; overflow: hidden; }
+    .wrestler-img img { maxwidth:100%; maxheight:100%; width: auto; height: auto; object-fit:contain; }
     .wrestler-body { padding:14px; flex:1; }
     .wrestler-body h3 { margin:0 0 6px; font-size:1.05rem; }
     .metrics { color:var(--muted); font-size:.9rem; line-height:1.6; }
