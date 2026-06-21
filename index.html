@@ -186,7 +186,7 @@ let selectedDraftName = "";
 function money(n) { return "$" + Number(n || 0).toLocaleString(); }
 function escapeHtml(s) { return String(s ?? "").replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m])); }
 function getImagePath(name) {
-  return "images/" +
+  return "image/" +
     name.toLowerCase()
       .replace(/['".]/g, "")
       .replace(/[^a-z0-9]+/g, "-")
@@ -198,9 +198,9 @@ function imageBlock(w) {
   const localPath = getImagePath(w.name);
 
   return `
-    <img 
-      src="${localPath}" 
-      alt="${escapeHtml(w.name)}" 
+    <img
+      src="${localPath}"
+      alt="${escapeHtml(w.name)}"
       onerror="this.parentElement.innerHTML='No Image'"
     >
   `;
