@@ -1,1 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>MyGM Family Tracker</title>
+  <style>
+    body { font-family: Arial, sans-serif; background:#111827; color:white; margin:0; }
+    header { background:#1f2937; padding:20px; text-align:center; }
+    nav { display:flex; gap:10px; justify-content:center; flex-wrap:wrap; padding:15px; background:#374151; }
+    button { padding:10px 14px; border:0; border-radius:8px; cursor:pointer; font-weight:bold; }
+    .tab-btn { background:#facc15; }
+    .danger { background:#ef4444; color:white; }
+    .save { background:#22c55e; color:white; }
+    .card { background:#1f2937; margin:20px auto; padding:20px; border-radius:12px; max-width:1000px; }
+    input, select, textarea { width:100%; padding:10px; margin:6px 0 14px; border-radius:6px; border:0; }
+    table { width:100%; border-collapse:collapse; margin-top:15px; }
+    th, td { border-bottom:1px solid #4b5563; padding:10px; text-align:left; }
+    .hidden { display:none; }
+    .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:15px; }
+  </style>
+</head>
+<body>
 
+<header>
+  <h1>MyGM Family Tracker</h1>
+  <p>Draft. Manage rosters. Track feuds. Remember your chaos.</p>
+</header>
+
+<nav>
+  <button class="tab-btn" onclick="showTab('setup')">League Setup</button>
+  <button class="tab-btn" onclick="showTab('draft')">Draft Room</button>
+  <button class="tab-btn" onclick="showTab('roster')">Roster</button>
+  <button class="tab-btn" onclick="showTab('feuds')">Feuds</button>
+  <button class="save" onclick="saveData()">Save</button>
+  <button class="danger" onclick="resetData()">Reset</button>
+</nav>
+
+<section id="setup" class="card">
+  <h2>League Setup</h2>
+  <label>Season Name</label>
+  <input id="seasonName" placeholder="Example: Brown Family WWE 2K26 Season">
+
+  <div class="grid">
+    <div>
+      <label>Brand 1</label>
+      <input id="brand1" placeholder="Raw">
+      <label>GM 1</label>
+      <input id="gm1" placeholder="Dad">
+    </div>
+    <div>
+      <label>Brand 2</label>
+      <input id="brand2" placeholder="SmackDown">
+      <label>GM 2</label>
+      <input id="gm2" placeholder="James">
+    </div>
+    <div>
+      <label>Brand 3</label>
+      <input id="brand3" placeholder="NXT">
+      <label>GM 3</label>
+      <input id="gm3" placeholder="Jensen">
+    </div>
+  </div>
+
+  <button class="save" onclick="saveSetup()">Save Setup</button>
+</section>
+
+<section id="draft" class="card hidden">
+  <h2>Draft Room</h2>
+
+  <label>Superstar Name</label>
+  <input id="draftName" placeholder="Cody Rhodes">
+
+  <label>Brand</label>
+  <select id="draftBrand"></select>
+
+  <label>Division</label>
+  <select id="draftDivision">
+    <option>Men</option>
+    <option>Women</option>
+    <option>Tag Team</option>
+    <option>Legend</option>
+  </select>
+
+  <label>Role</label>
+  <select id="draftRole">
+    <option>Main Eventer</option>
+    <option>Mid Card</option>
+    <option>Opener</option>
+    <option>Specialist</option>
+  </select>
+
+  <button class="save" onclick="draftSuperstar()">Draft Superstar</button>
+
+  <table>
+    <thead>
+      <tr><th>Name</th><th>Brand</th><th>Division</th><th>Role</th></tr>
+    </thead>
+    <tbody id="draftTable"></tbody>
+  </table>
+</section>
+
+<section id="roster" class="card hidden">
+  <h2>Roster Management</h2>
+  <div id="rosterCards"></div>
+</section>
+
+<section id="feuds" class="card hidden">
+  <h2>Feud Tracker</h2>
+
+  <label>Brand</label>
+  <select id="feudBrand"></select>
+
+  <label>Wrestler / Team 1</label>
+  <input id="feudOne" placeholder="LA Knight">
+
+  <label>Wrestler / Team 2</label>
+  <input id="feudTwo" placeholder="Logan Paul">
+
+  <label>Feud Notes</label>
+  <textarea id="feudNotes" placeholder="Started after a promo. Blowoff planned at SummerSlam."></textarea>
+
+  <button class="save" onclick="addFeud()">Add Feud</button>
+
+  <table>
+    <thead>
+      <tr><th>Brand</th><th>Feud</th><th>Notes</th></tr>
+    </thead>
+    <tbody id="feudTable"></tbody>
+  </table>
+</section>
+
+<script>
+let data = {
+  setup: {},
+  roster: [],
+  feuds: []
+};
+
+function showTab(tab) {
+  document.querySelectorAll("section").forEach(s => s.classList.add("hidden"));
+  document.getElementById(tab).classList.remove("hidden");
+  renderAll();
+}
+
+function saveSetup() {
+  data.setup = {
+    seasonName: document.getElementById("seasonName").value,
+    brands: [
+      { name: document.getElementById("brand1").value, gm: document.getElementById("gm1").value },
+      { name: document.getElementById("brand2").value, gm: document.getElementById("gm2").value },
+      { name: document.getElementById("brand3").value, gm: document.getElementById("gm3").value }
+    ].filter(b => b.name)
+  };
+  saveData();
+  renderAll();
+  alert("League setup saved!");
+}
+
+function draftSuperstar() {
+  const wrestler = {
+    name: document.getElementById("draftName").value,
+    brand: document.getElementById("draftBrand").value,
+    division: document.getElementById("draftDivision").value,
+    role: document.getElementById("draftRole").value,
+    alignment: "Face",
+    champion: "No",
+    notes: ""
+  };
+
+  if (!wrestler.name || !wrestler.brand) {
+    alert("Add a wrestler name and brand first.");
+    return;
+  }
+
+  data.roster.push(wrestler);
+  document.getElementById("draftName").value = "";
+  saveData();
+  renderAll();
+}
+
+function addFeud() {
+  const feud = {
+    brand: document.getElementById("feudBrand").value,
+    one: document.getElementById("feudOne").value,
+    two: document.getElementById("feudTwo").value,
+    notes: document.getElementById("feudNotes").value
+  };
+
+  if (!feud.one || !feud.two) {
+    alert("Add both sides of the feud.");
+    return;
+  }
+
+  data.feuds.push(feud);
+  document.getElementById("feudOne").value = "";
+  document.getElementById("feudTwo").value = "";
+  document.getElementById("feudNotes").value = "";
+  saveData();
+  renderAll();
+}
+
+function renderAll() {
+  renderBrandDropdowns();
+  renderDraftTable();
+  renderRoster();
+  renderFeuds();
+}
+
+function renderBrandDropdowns() {
+  const brands = data.setup.brands || [];
+  const dropdowns = [document.getElementById("draftBrand"), document.getElementById("feudBrand")];
+
+  dropdowns.forEach(drop => {
+    drop.innerHTML = "";
+    brands.forEach(b => {
+      const option = document.createElement("option");
+      option.value = b.name;
+      option.textContent = `${b.name} - ${b.gm}`;
+      drop.appendChild(option);
+    });
+  });
+}
+
+function renderDraftTable() {
+  const table = document.getElementById("draftTable");
+  table.innerHTML = "";
+
+  data.roster.forEach(w => {
+    table.innerHTML += `
+      <tr>
+        <td>${w.name}</td>
+        <td>${w.brand}</td>
+        <td>${w.division}</td>
+        <td>${w.role}</td>
+      </tr>
+    `;
+  });
+}
+
+function renderRoster() {
+  const area = document.getElementById("rosterCards");
+  area.innerHTML = "";
+
+  const brands = data.setup.brands || [];
+
+  brands.forEach(b => {
+    const members = data.roster.filter(w => w.brand === b.name);
+
+    area.innerHTML += `
+      <h3>${b.name} — GM: ${b.gm}</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Name</th><th>Division</th><th>Role</th><th>Alignment</th><th>Champion</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${members.map(w => `
+            <tr>
+              <td>${w.name}</td>
+              <td>${w.division}</td>
+              <td>${w.role}</td>
+              <td>${w.alignment}</td>
+              <td>${w.champion}</td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    `;
+  });
+}
+
+function renderFeuds() {
+  const table = document.getElementById("feudTable");
+  table.innerHTML = "";
+
+  data.feuds.forEach(f => {
+    table.innerHTML += `
+      <tr>
+        <td>${f.brand}</td>
+        <td>${f.one} vs ${f.two}</td>
+        <td>${f.notes}</td>
+      </tr>
+    `;
+  });
+}
+
+function saveData() {
+  localStorage.setItem("mygmFamilyTracker", JSON.stringify(data));
+}
+
+function loadData() {
+  const saved = localStorage.getItem("mygmFamilyTracker");
+  if (saved) data = JSON.parse(saved);
+
+  if (data.setup) {
+    document.getElementById("seasonName").value = data.setup.seasonName || "";
+    if (data.setup.brands) {
+      document.getElementById("brand1").value = data.setup.brands[0]?.name || "";
+      document.getElementById("gm1").value = data.setup.brands[0]?.gm || "";
+      document.getElementById("brand2").value = data.setup.brands[1]?.name || "";
+      document.getElementById("gm2").value = data.setup.brands[1]?.gm || "";
+      document.getElementById("brand3").value = data.setup.brands[2]?.name || "";
+      document.getElementById("gm3").value = data.setup.brands[2]?.gm || "";
+    }
+  }
+
+  renderAll();
+}
+
+function resetData() {
+  if (confirm("This will erase your saved MyGM season on this browser. Are you sure?")) {
+    localStorage.removeItem("mygmFamilyTracker");
+    location.reload();
+  }
+}
+
+loadData();
+</script>
+
+</body>
+</html>
