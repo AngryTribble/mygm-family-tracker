@@ -274,6 +274,25 @@
     <label>Popularity</label>
     <input id="editPopularity" type="number" min="0" max="100">
 
+    <label>Current Class</label>
+    <select id="editCurrentClass"></select>
+
+    <label>Bonus Class / Perk 3</label>
+    <select id="editBonusClass">
+      <option value="">None</option>
+      <option>Cruiser</option>
+      <option>Giant</option>
+      <option>Fighter</option>
+      <option>Bruiser</option>
+      <option>Specialist</option>
+    </select>
+
+    <label>Perk 1 Match Specialty</label>
+    <input id="editPerk1" placeholder="Example: Tables Match">
+
+    <label>Perk 4 Match Specialty</label>
+    <input id="editPerk4" placeholder="Example: Ladder Match">
+
     <input id="editSuperstarName" type="hidden">
     <input id="editSuperstarBrand" type="hidden">
 
@@ -282,6 +301,7 @@
       <button class="danger" onclick="closeEditSuperstarModal()">Cancel</button>
     </div>
   </div>
+</div>
 </div>
 
 <script>
@@ -354,6 +374,8 @@ function imageBlock(w) {
     <img
       src="${base}.png"
       alt="${escapeHtml(w.name)}"
+      loading="lazy"
+      decoding="async"
       onerror="
         this.onerror=function(){
           this.parentElement.innerHTML='No Image';
@@ -370,6 +392,8 @@ function beltImageBlock(titleName) {
     <img
       src="${base}.png"
       alt="${escapeHtml(titleName)}"
+      loading="lazy"
+      decoding="async"
       onerror="
         this.onerror=function(){
           this.parentElement.innerHTML='Belt Image';
@@ -379,7 +403,7 @@ function beltImageBlock(titleName) {
     >
   `;
 }
-
+  
 function populateSetupDropdowns() {
   [1,2,3].forEach(i => {
     document.getElementById("brand"+i).innerHTML = `<option value="">Select Brand</option>` + brandOptions.map(x=>`<option>${x}</option>`).join("");
@@ -623,7 +647,19 @@ function confirmDraft() {
   if (cost > brand.remainingBudget) return alert(`${brand.name} only has ${money(brand.remainingBudget)} left.`);
 
   brand.remainingBudget -= cost;
-  data.roster.push({ ...w, brand: brand.name, cost, champion:"No", condition:"Active", notes:"" });
+  data.roster.push({ 
+    ...w, 
+    brand: brand.name, 
+    cost, 
+    champion:"No", 
+    condition:"Active", 
+    notes:"",
+    baseClass: w.classType,
+    activeClass: w.classType,
+    bonusClass: "",
+    perk1: "",
+    perk4: ""
+  });
   data.draftHistory.push({ pick:data.draftHistory.length+1, brand:brand.name, superstar:w.name, cost, remainingBudget:brand.remainingBudget });
   activeBrand = brand.name;
   closeDraftModal(); saveData(); renderAll();
@@ -1002,6 +1038,7 @@ function renderBrandDashboard() {
               Ring: ${w.ring} | Promo: ${w.promo}<br>
               Cost: ${money(w.cost)}<br>
               Status: ${escapeHtml(w.condition || "Active")}
+              ${perkSummaryHtml(w)}
             </div>
           </div>
           <div class="card-actions">
@@ -1103,6 +1140,35 @@ function removeFromActiveRivalriesOnRelease(wrestlerName, brandName) {
 }
 
 
+
+function renderClassOptions(baseClass, bonusClass, currentClass) {
+  const allowed = [baseClass, bonusClass].filter(Boolean);
+  const unique = [...new Set(allowed)];
+  return unique.map(c => `<option value="${escapeHtml(c)}" ${c === currentClass ? "selected" : ""}>${escapeHtml(c)}</option>`).join("");
+}
+
+function perkSummaryHtml(w) {
+  const bonusClass = w.bonusClass || "";
+  const activeClass = w.activeClass || w.classType || "";
+  const baseClass = w.baseClass || w.classType || "";
+  const perk1 = w.perk1 || "";
+  const perk4 = w.perk4 || "";
+
+  let html = "";
+
+  if (bonusClass) {
+    html += `<br>Class Flip: ${escapeHtml(baseClass)} ↔ ${escapeHtml(bonusClass)}`;
+    html += `<br>Current Class: ${escapeHtml(activeClass)}`;
+  }
+
+  if (perk1 || perk4) {
+    html += `<br>Specialties: ${escapeHtml([perk1, perk4].filter(Boolean).join(", "))}`;
+  }
+
+  return html;
+}
+
+
 function openEditSuperstarModal(wrestlerName, brandName) {
   const wrestler = data.roster.find(w => w.name === wrestlerName && w.brand === brandName);
 
@@ -1111,11 +1177,26 @@ function openEditSuperstarModal(wrestlerName, brandName) {
     return;
   }
 
+  if (!wrestler.baseClass) wrestler.baseClass = wrestler.classType;
+  if (!wrestler.activeClass) wrestler.activeClass = wrestler.classType;
+
   document.getElementById("editSuperstarTitle").textContent = `Edit ${wrestler.name}`;
   document.getElementById("editRingLevel").value = wrestler.ring || 0;
   document.getElementById("editPopularity").value = wrestler.pop || 0;
+  document.getElementById("editBonusClass").value = wrestler.bonusClass || "";
+  document.getElementById("editPerk1").value = wrestler.perk1 || "";
+  document.getElementById("editPerk4").value = wrestler.perk4 || "";
   document.getElementById("editSuperstarName").value = wrestler.name;
   document.getElementById("editSuperstarBrand").value = wrestler.brand;
+
+  document.getElementById("editCurrentClass").innerHTML =
+    renderClassOptions(wrestler.baseClass, wrestler.bonusClass, wrestler.activeClass);
+
+  document.getElementById("editBonusClass").onchange = function() {
+    const newBonus = this.value;
+    document.getElementById("editCurrentClass").innerHTML =
+      renderClassOptions(wrestler.baseClass, newBonus, wrestler.activeClass);
+  };
 
   document.getElementById("editSuperstarModal").classList.add("show");
 }
@@ -1135,10 +1216,20 @@ function saveSuperstarEdits() {
     return;
   }
 
+  if (!wrestler.baseClass) wrestler.baseClass = wrestler.classType;
+
   wrestler.ring = Number(document.getElementById("editRingLevel").value || 0);
   wrestler.pop = Number(document.getElementById("editPopularity").value || 0);
+  wrestler.bonusClass = document.getElementById("editBonusClass").value || "";
+  wrestler.activeClass = document.getElementById("editCurrentClass").value || wrestler.baseClass;
+  wrestler.classType = wrestler.activeClass;
+  wrestler.perk1 = document.getElementById("editPerk1").value || "";
+  wrestler.perk4 = document.getElementById("editPerk4").value || "";
 
-  transactionLog("Edit", `${wrestlerName} was updated. Ring Level: ${wrestler.ring}, Popularity: ${wrestler.pop}.`);
+  transactionLog(
+    "Edit",
+    `${wrestlerName} was updated. Ring Level: ${wrestler.ring}, Popularity: ${wrestler.pop}, Current Class: ${wrestler.activeClass}.`
+  );
 
   saveData();
   closeEditSuperstarModal();
@@ -1199,7 +1290,12 @@ function signFreeAgent(wrestlerName) {
     status: wrestler.originalStatus || wrestler.status || "Active",
     freeAgentType: undefined,
     champion: "No",
-    condition: "Active"
+    condition: "Active",
+    baseClass: wrestler.baseClass || wrestler.classType,
+    activeClass: wrestler.activeClass || wrestler.classType,
+    bonusClass: wrestler.bonusClass || "",
+    perk1: wrestler.perk1 || "",
+    perk4: wrestler.perk4 || ""
   });
 
   transactionLog("Signing", `${brand.name} signed ${wrestlerName} for ${money(cost)}.`);
