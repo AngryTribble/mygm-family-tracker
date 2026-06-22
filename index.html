@@ -938,7 +938,7 @@ function openScoutModal(wrestlerName) {
           Promo Skill: ${w.promo || 0}
         </div>
 
-        <h3>Top 5 Rivalry Fits Still Available</h3>
+        <h3>Top 3 Rivalry Fits Still Available</h3>
         ${fits.length ? fits.map(f => `
           <div class="scout-fit-card">
             <strong>${escapeHtml(f.name)}</strong>
@@ -951,7 +951,7 @@ function openScoutModal(wrestlerName) {
             <div class="small">
               Pop ${f.pop || 0} • Ring ${f.ring || 0} • Promo ${f.promo || 0}
             </div>
-            <div class="small">${escapeHtml(f.rivalryFit.reasons.slice(0,4).join(" • "))}</div>
+            <div class="small">${escapeHtml(f.rivalryFit.reasons.slice(0,3).join(" • "))}</div>
           </div>
         `).join("") : `<p class="small">No available rivalry fits found.</p>`}
       </div>
