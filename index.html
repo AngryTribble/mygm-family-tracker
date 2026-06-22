@@ -915,7 +915,7 @@ function getTopRivalryFits(wrestlerName) {
     .filter(o => o.name !== wrestler.name)
     .map(o => ({ ...o, rivalryFit: scoreRivalryFit(wrestler, o) }))
     .sort((a,b) => b.rivalryFit.score - a.rivalryFit.score || b.pop - a.pop)
-    .slice(0,5);
+    .slice(0,3);
 }
 
 function openScoutModal(wrestlerName) {
