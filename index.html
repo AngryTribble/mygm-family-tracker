@@ -77,6 +77,15 @@
     .fa-local { background:#475569; color:white; }
     .fa-released { background:#7f1d1d; color:white; }
 
+    .season-tools { display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-top:14px; }
+    .protected-badge { display:inline-flex; align-items:center; gap:4px; background:#1d4ed8; border:1px solid #60a5fa; color:white; border-radius:999px; padding:4px 8px; font-size:.75rem; font-weight:700; margin:4px 0; }
+    .season-warning { background:#451a03; border:1px solid #f59e0b; border-radius:14px; padding:12px; color:#fde68a; margin-top:12px; }
+    .season-good { background:#052e16; border:1px solid #22c55e; border-radius:14px; padding:12px; color:#bbf7d0; margin-top:12px; }
+
+    .draft-control-row { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:14px; margin:16px 0; }
+    .last-pick-box { background:#0f172a; border:1px solid var(--line); border-radius:14px; padding:14px; }
+    .last-pick-box strong { color:var(--gold); }
+
     .health-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:14px; margin:14px 0; }
     .health-card { background:#0f172a; border:1px solid var(--line); border-radius:14px; padding:14px; }
     .health-card h4 { margin:0 0 8px; color:var(--gold); }
@@ -100,7 +109,7 @@
 <body>
 <header>
   <h1>MyGM Family Tracker</h1>
-  <p>Draft cards. Budget tracking. Brand dashboards. Recommendation logic.</p>
+  <p>Draft cards. Budget tracking. Brand dashboards. Multi-season tracking.</p>
 </header>
 
 <nav>
@@ -143,6 +152,20 @@
     </div>
   </div>
   <button class="save" onclick="saveSetup()">Save Setup</button>
+
+  <div class="budget-box" style="margin-top:18px;">
+    <h3>Season Tools</h3>
+    <div id="seasonStatus" class="small"></div>
+    <div class="season-tools">
+      <button class="ghost" onclick="startNewSeason()">Start New Season</button>
+      <button class="danger" onclick="restartMyGM()">Restart MyGM / Reset to Base</button>
+    </div>
+    <div class="season-warning">
+      <strong>Start New Season</strong> keeps edited stats and protected superstars.<br>
+      <strong>Restart MyGM</strong> wipes the save and returns everyone to base roster stats.
+    </div>
+  </div>
+
 </section>
 
 <section id="draft" class="card hidden">
@@ -152,6 +175,15 @@
     <button class="danger" onclick="concludeDraft()">Conclude Draft</button>
   </div>
   <div id="budgetDisplay" class="grid"></div>
+
+  <div class="draft-control-row">
+    <div class="last-pick-box">
+      <label>View Draft Health For</label>
+      <select id="draftHealthBrand" onchange="setDraftViewBrand(this.value)"></select>
+      <p class="small">Switch brands here to update health check, recommendations, and scout logic.</p>
+    </div>
+    <div id="lastSelectionBox" class="last-pick-box"></div>
+  </div>
 
   <div class="budget-box" style="margin-top:16px;">
     <h3>Draft Health Check</h3>
@@ -163,7 +195,7 @@
     <aside class="filters">
       <h3>Filters</h3>
       <label>Search</label><input id="searchBox" placeholder="Search name..." oninput="renderDraftRoom()">
-      <label>Brand for Recommendations</label><select id="recommendBrand" onchange="renderDraftRoom()"></select>
+      <label>Brand for Recommendations</label><select id="recommendBrand" onchange="setDraftViewBrand(this.value)"></select>
       <label>Gender</label><select id="filterGender" onchange="renderDraftRoom()"><option value="">All</option><option>Male</option><option>Female</option><option value="Unknown">Unknown / Blank</option></select>
       <label>Class</label><select id="filterClass" onchange="renderDraftRoom()"><option value="">All</option><option>Cruiser</option><option>Giant</option><option>Fighter</option><option>Bruiser</option><option>Specialist</option></select>
       <label>Role</label><select id="filterRole" onchange="renderDraftRoom()"><option value="">All</option><option>Face</option><option>Heel</option></select>
@@ -465,7 +497,7 @@ fullRoster.forEach(w => {
 });
 
   
-let data = { setup:{}, roster:[], feuds:[], draftHistory:[], championships:{}, activeRivalries:[], rivalryHistory:[], freeAgents:[], draftConcluded:false, transactions:[] };
+let data = { setup:{ seasonNumber:1 }, roster:[], feuds:[], draftHistory:[], championships:{}, activeRivalries:[], rivalryHistory:[], freeAgents:[], draftConcluded:false, transactions:[], seasonArchive:[] };
 let activeBrand = "";
 let selectedDraftName = "";
 
@@ -558,7 +590,11 @@ function saveSetup() {
   const gmNames = brands.map(b=>b.gm);
   if (new Set(brandNames).size !== brandNames.length) return alert("Each brand can only be selected once.");
   if (new Set(gmNames).size !== gmNames.length) return alert("Each GM can only be selected once.");
-  data.setup = { seasonName: document.getElementById("seasonName").value, brands };
+  data.setup = { 
+    seasonName: document.getElementById("seasonName").value, 
+    brands,
+    seasonNumber: data.setup?.seasonNumber || 1
+  };
   if (!activeBrand && brands.length) activeBrand = brands[0].name;
   saveData(); renderAll(); alert("League setup saved!");
 }
@@ -599,7 +635,7 @@ function scoreWrestlerForBrand(w, brandName) {
   reasons.push(`Popularity adds +${Math.floor(w.pop/10)}`);
 
   // Gender balance.
-  if (w.gender === "Female" && a.women <= a.men / 2) { score += 12; reasons.push("Needs more women +12"); }
+  if (w.gender === "Female" && a.women <= a.men / 3) { score += 5; reasons.push("Women's division depth +5"); }
   if (w.gender === "Male" && a.men <= a.women / 2) { score += 8; reasons.push("Needs more men +8"); }
 
   // Face/heel balance.
@@ -607,12 +643,17 @@ function scoreWrestlerForBrand(w, brandName) {
   if (w.role === "Heel" && a.heels < a.faces) { score += 8; reasons.push("Needs heels +8"); }
 
   // Class pairing logic.
-  const counterpart = classCounter(w.classType);
-  if ((a.classes[counterpart] || 0) > (a.classes[w.classType] || 0)) {
-    score += 14; reasons.push(`${w.classType} pairs with existing ${counterpart} +14`);
-  }
-  if ((a.classes[w.classType] || 0) === 0) { score += 7; reasons.push(`No ${w.classType} yet +7`); }
-  if ((a.classes[w.classType] || 0) >= 3) { score -= 8; reasons.push(`Already heavy on ${w.classType} -8`); }
+const counterpart = classCounter(w.classType);
+
+if ((a.classes[counterpart] || 0) > (a.classes[w.classType] || 0)) {
+  score += 28;
+  reasons.push(`${w.classType} pairs with existing ${counterpart} +28`);
+}
+
+if ((a.classes[w.classType] || 0) === 0) {
+  score += 22;
+  reasons.push(`No ${w.classType} yet +22`);
+}
 
   // Specialists for promos.
   if (w.classType === "Specialist" && (a.classes.Specialist || 0) === 0) { score += 9; reasons.push("First Specialist +9"); }
@@ -649,180 +690,97 @@ function renderBudgetDisplay() {
   `).join("");
 }
 
-function renderBrandDropdowns() {
-  const brands = data.setup.brands || [];
-  ["feudBrand","modalBrand","recommendBrand"].forEach(id => {
-    const el = document.getElementById(id);
-    if (!el) return;
-    el.innerHTML = brands.map(b => `<option value="${escapeHtml(b.name)}">${escapeHtml(b.name)} - ${escapeHtml(b.gm)}</option>`).join("");
-  });
-  if (document.getElementById("recommendBrand") && activeBrand) document.getElementById("recommendBrand").value = activeBrand;
+
+function setDraftViewBrand(brandName) {
+  if (!brandName) return;
+  activeBrand = brandName;
+
+  const draftHealthBrand = document.getElementById("draftHealthBrand");
+  const recommendBrand = document.getElementById("recommendBrand");
+
+  if (draftHealthBrand && draftHealthBrand.value !== brandName) draftHealthBrand.value = brandName;
+  if (recommendBrand && recommendBrand.value !== brandName) recommendBrand.value = brandName;
+
+  renderDraftRoom();
 }
 
-
-function getBrandRosterForHealth(brandName) {
-  return data.roster.filter(w => w.brand === brandName);
-}
-
-function countBy(roster, field, value) {
-  return roster.filter(w => (w[field] || "") === value).length;
-}
-
-function getDraftNeeds(brandName) {
-  const roster = getBrandRosterForHealth(brandName);
-
-  const counts = {
-    Male: countBy(roster, "gender", "Male"),
-    Female: countBy(roster, "gender", "Female"),
-    Cruiser: countBy(roster, "classType", "Cruiser"),
-    Giant: countBy(roster, "classType", "Giant"),
-    Fighter: countBy(roster, "classType", "Fighter"),
-    Bruiser: countBy(roster, "classType", "Bruiser"),
-    Specialist: countBy(roster, "classType", "Specialist"),
-    Face: countBy(roster, "role", "Face"),
-    Heel: countBy(roster, "role", "Heel")
-  };
-
-  const needs = [];
-
-  if (counts.Female < 4) needs.push({ priority: 100, label: "Female division depth", target: "Draft more women", filterGender: "Female" });
-  if (counts.Male < 8) needs.push({ priority: 90, label: "Men's division depth", target: "Draft more men", filterGender: "Male" });
-
-  ["Cruiser","Giant","Fighter","Bruiser","Specialist"].forEach(cls => {
-    if (counts[cls] === 0) {
-      needs.push({ priority: 85, label: `No ${cls}s drafted`, target: `Draft a ${cls}`, filterClass: cls });
-    } else if (counts[cls] < 2) {
-      needs.push({ priority: 55, label: `${cls} depth is thin`, target: `Add another ${cls}`, filterClass: cls });
-    }
-  });
-
-  const faceHeelGap = Math.abs(counts.Face - counts.Heel);
-  if (faceHeelGap >= 4) {
-    const neededRole = counts.Face < counts.Heel ? "Face" : "Heel";
-    needs.push({ priority: 70, label: `${neededRole} depth is low`, target: `Draft a ${neededRole}`, filterRole: neededRole });
-  }
-
-  const classPairs = [
-    ["Cruiser", "Giant"],
-    ["Fighter", "Bruiser"]
-  ];
-
-  classPairs.forEach(([a,b]) => {
-    if (counts[a] > counts[b] + 1) {
-      needs.push({ priority: 65, label: `${a}s need ${b}s`, target: `Draft a ${b}`, filterClass: b });
-    }
-    if (counts[b] > counts[a] + 1) {
-      needs.push({ priority: 65, label: `${b}s need ${a}s`, target: `Draft a ${a}`, filterClass: a });
-    }
-  });
-
-  needs.sort((a,b) => b.priority - a.priority);
-  return { counts, needs };
-}
-
-function getSuggestedPicksForNeed(brandName, need) {
-  let list = availableRoster();
-
-  if (need.filterGender) list = list.filter(w => w.gender === need.filterGender);
-  if (need.filterClass) list = list.filter(w => w.classType === need.filterClass);
-  if (need.filterRole) list = list.filter(w => w.role === need.filterRole);
-
-  return list
-    .map(w => ({ ...w, fit: scoreWrestlerForBrand(w, brandName) }))
-    .sort((a,b) => b.fit.score - a.fit.score || b.pop - a.pop)
-    .slice(0,3);
-}
-
-function renderDraftHealthCheck() {
-  const box = document.getElementById("draftHealthCheck");
+function renderLastSelection() {
+  const box = document.getElementById("lastSelectionBox");
   if (!box) return;
 
-  const brandName = document.getElementById("recommendBrand")?.value || activeBrand || data.setup.brands?.[0]?.name;
-  if (!brandName) {
-    box.innerHTML = `<p class="small">Save setup first, then select a brand to see draft health.</p>`;
+  const last = data.draftHistory && data.draftHistory.length
+    ? data.draftHistory[data.draftHistory.length - 1]
+    : null;
+
+  if (!last) {
+    box.innerHTML = `
+      <h3>Last Selection</h3>
+      <p class="small">No picks have been made yet.</p>
+    `;
     return;
   }
 
-  const roster = getBrandRosterForHealth(brandName);
-  const { counts, needs } = getDraftNeeds(brandName);
-
-  const targetRoster = 20;
-  const rosterScore = Math.min(100, Math.round((roster.length / targetRoster) * 100));
-  const genderBalanceScore = roster.length ? Math.max(0, 100 - Math.abs(counts.Male - counts.Female) * 6) : 0;
-  const classCoverage = ["Cruiser","Giant","Fighter","Bruiser","Specialist"].filter(c => counts[c] > 0).length;
-  const classScore = Math.round((classCoverage / 5) * 100);
-  const roleBalanceScore = roster.length ? Math.max(0, 100 - Math.abs(counts.Face - counts.Heel) * 10) : 0;
-  const overall = Math.round((rosterScore + genderBalanceScore + classScore + roleBalanceScore) / 4);
-
-  const topNeed = needs[0];
-  const suggested = topNeed ? getSuggestedPicksForNeed(brandName, topNeed) : [];
+  const wrestler =
+    data.roster.find(w => w.name === last.superstar && w.brand === last.brand) ||
+    fullRoster.find(w => w.name === last.superstar);
 
   box.innerHTML = `
-    <div class="health-grid">
-      <div class="health-card">
-        <h4>${escapeHtml(brandName)} Health Score</h4>
-        <div class="health-score">${overall}%</div>
-        <div class="health-bar"><div class="health-bar-fill" style="width:${overall}%"></div></div>
-        <span class="pill ${overall >= 75 ? "good" : overall >= 45 ? "warn" : "bad"}">
-          ${overall >= 75 ? "Strong" : overall >= 45 ? "Developing" : "Needs Help"}
-        </span>
+    <h3>Last Selection</h3>
+    <strong>Pick ${last.pick}: ${escapeHtml(last.superstar)}</strong><br>
+    <span class="pill">${escapeHtml(last.brand)}</span>
+    ${wrestler ? `
+      <span class="pill">${escapeHtml(wrestler.gender || "Unknown")}</span>
+      <span class="pill">${escapeHtml(wrestler.role || "")}</span>
+      <span class="pill">${escapeHtml(wrestler.classType || "")}</span>
+      <div class="small" style="margin-top:8px;">
+        Cost: ${money(last.cost)}<br>
+        ${escapeHtml(last.brand)} Remaining: ${money(last.remainingBudget)}
       </div>
-
-      <div class="health-card">
-        <h4>Gender Balance</h4>
-        <span class="pill">Male: ${counts.Male}</span>
-        <span class="pill">Female: ${counts.Female}</span>
-        <div class="small">Target: enough depth for men's and women's titles.</div>
-      </div>
-
-      <div class="health-card">
-        <h4>Role Balance</h4>
-        <span class="pill">Face: ${counts.Face}</span>
-        <span class="pill">Heel: ${counts.Heel}</span>
-        <div class="small">Keep both sides deep enough for rivalries.</div>
-      </div>
-
-      <div class="health-card">
-        <h4>Class Coverage</h4>
-        ${["Cruiser","Giant","Fighter","Bruiser","Specialist"].map(c => `
-          <span class="pill ${counts[c] >= 2 ? "good" : counts[c] === 1 ? "warn" : "bad"}">${c}: ${counts[c]}</span>
-        `).join("")}
-      </div>
-    </div>
-
-    <div class="health-card">
-      <h4>Draft Needs</h4>
-      <div class="need-list">
-        ${needs.length ? needs.slice(0,5).map(n => `
-          <div class="need-item ${n.priority >= 80 ? "bad" : n.priority >= 60 ? "warn" : "good"}">
-            <strong>${escapeHtml(n.label)}</strong><br>
-            <span class="small">${escapeHtml(n.target)}</span>
-          </div>
-        `).join("") : `<div class="need-item good">✅ Roster balance looks strong.</div>`}
-      </div>
-    </div>
-
-    <div class="health-card" style="margin-top:14px;">
-      <h4>Suggested Picks for Current Need</h4>
-      ${topNeed ? `<p class="small">Top need: ${escapeHtml(topNeed.target)}</p>` : ""}
-      ${suggested.length ? suggested.map(w => `
-        <div class="recommendation-item">
-          <strong>${escapeHtml(w.name)}</strong><br>
-          <span class="stars">${stars(w.fit.score)}</span>
-          <span class="small"> Fit Score: ${w.fit.score}</span><br>
-          <span class="pill">${escapeHtml(w.gender)}</span>
-          <span class="pill">${escapeHtml(w.role)}</span>
-          <span class="pill">${escapeHtml(w.classType)}</span>
-          <div class="small">Pop ${w.pop} • Ring ${w.ring} • Promo ${w.promo}</div>
-        </div>
-      `).join("") : `<p class="small">No specific need-based suggestions right now.</p>`}
-    </div>
+    ` : ""}
   `;
 }
 
 
+function renderBrandDropdowns() {
+  const brands = data.setup.brands || [];
+
+  ["feudBrand","modalBrand"].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.innerHTML = brands.map(b => `<option value="${escapeHtml(b.name)}">${escapeHtml(b.name)} - ${escapeHtml(b.gm)}</option>`).join("");
+  });
+
+  ["recommendBrand","draftHealthBrand"].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+
+    const currentValue = el.value || activeBrand || brands?.[0]?.name || "";
+    el.innerHTML = brands.map(b => `<option value="${escapeHtml(b.name)}">${escapeHtml(b.name)} - ${escapeHtml(b.gm)}</option>`).join("");
+
+    if (brands.some(b => b.name === currentValue)) {
+      el.value = currentValue;
+    } else if (brands.length) {
+      el.value = brands[0].name;
+    }
+  });
+
+  const selectedDraftBrand =
+    document.getElementById("draftHealthBrand")?.value ||
+    document.getElementById("recommendBrand")?.value ||
+    activeBrand ||
+    brands?.[0]?.name ||
+    "";
+
+  if (selectedDraftBrand) activeBrand = selectedDraftBrand;
+
+  const recommendBrand = document.getElementById("recommendBrand");
+  const draftHealthBrand = document.getElementById("draftHealthBrand");
+  if (recommendBrand && selectedDraftBrand) recommendBrand.value = selectedDraftBrand;
+  if (draftHealthBrand && selectedDraftBrand) draftHealthBrand.value = selectedDraftBrand;
+}
+
 function renderRecommendations() {
-  const brandName = document.getElementById("recommendBrand")?.value || activeBrand || data.setup.brands?.[0]?.name;
+  const brandName = document.getElementById("draftHealthBrand")?.value || document.getElementById("recommendBrand")?.value || activeBrand || data.setup.brands?.[0]?.name;
   activeBrand = brandName || activeBrand;
   const box = document.getElementById("recommendations");
   if (!box) return;
@@ -915,7 +873,7 @@ function getTopRivalryFits(wrestlerName) {
     .filter(o => o.name !== wrestler.name)
     .map(o => ({ ...o, rivalryFit: scoreRivalryFit(wrestler, o) }))
     .sort((a,b) => b.rivalryFit.score - a.rivalryFit.score || b.pop - a.pop)
-    .slice(0,3);
+    .slice(0,5);
 }
 
 function openScoutModal(wrestlerName) {
@@ -938,7 +896,7 @@ function openScoutModal(wrestlerName) {
           Promo Skill: ${w.promo || 0}
         </div>
 
-        <h3>Top 3 Rivalry Fits Still Available</h3>
+        <h3>Top 5 Rivalry Fits Still Available</h3>
         ${fits.length ? fits.map(f => `
           <div class="scout-fit-card">
             <strong>${escapeHtml(f.name)}</strong>
@@ -951,7 +909,7 @@ function openScoutModal(wrestlerName) {
             <div class="small">
               Pop ${f.pop || 0} • Ring ${f.ring || 0} • Promo ${f.promo || 0}
             </div>
-            <div class="small">${escapeHtml(f.rivalryFit.reasons.slice(0,3).join(" • "))}</div>
+            <div class="small">${escapeHtml(f.rivalryFit.reasons.slice(0,4).join(" • "))}</div>
           </div>
         `).join("") : `<p class="small">No available rivalry fits found.</p>`}
       </div>
@@ -967,10 +925,10 @@ function closeScoutModal() {
 
 
 function renderDraftRoom() {
-  renderBudgetDisplay(); renderBrandDropdowns(); renderRecommendations(); renderDraftHealthCheck();
+  renderBudgetDisplay(); renderBrandDropdowns(); renderLastSelection(); renderRecommendations(); renderDraftHealthCheck();
   const board = document.getElementById("draftCards");
   if (!board) return;
-  const brandName = document.getElementById("recommendBrand")?.value || activeBrand || data.setup.brands?.[0]?.name || "";
+  const brandName = document.getElementById("draftHealthBrand")?.value || document.getElementById("recommendBrand")?.value || activeBrand || data.setup.brands?.[0]?.name || "";
   const search = (document.getElementById("searchBox")?.value || "").toLowerCase();
   const fg = document.getElementById("filterGender")?.value || "";
   const fc = document.getElementById("filterClass")?.value || "";
@@ -1062,7 +1020,8 @@ function confirmDraft() {
     activeClass: w.classType,
     bonusClass: "",
     perk1: "",
-    perk4: ""
+    perk4: "",
+    protected: false
   });
   data.draftHistory.push({ pick:data.draftHistory.length+1, brand:brand.name, superstar:w.name, cost, remainingBudget:brand.remainingBudget });
   activeBrand = brand.name;
@@ -1434,6 +1393,7 @@ function renderBrandDashboard() {
             <h3>${escapeHtml(w.name)}</h3>
             ${championBadgeHtml(w.name, brand.name)}
             ${activeRivalryBadgeHtml(w.name, brand.name)}
+            ${protectedBadgeHtml(w)}
             <span class="pill">${escapeHtml(w.gender || "Unknown")}</span>
             <span class="pill">${escapeHtml(w.role)}</span>
             <span class="pill">${escapeHtml(w.classType)}</span>
@@ -1447,6 +1407,7 @@ function renderBrandDashboard() {
           </div>
           <div class="card-actions">
             <button class="ghost" onclick="openEditSuperstarModal('${escapeHtml(w.name).replace(/'/g,"\\'")}', '${escapeHtml(brand.name).replace(/'/g,"\\'")}')">Edit</button>
+            <button class="ghost" onclick="toggleProtected('${escapeHtml(w.name).replace(/'/g,"\\'")}', '${escapeHtml(brand.name).replace(/'/g,"\\'")}')">${w.protected ? "Remove Protection" : "Protect Superstar"}</button>
             <button class="danger" onclick="releaseSuperstar('${escapeHtml(w.name).replace(/'/g,"\\'")}', '${escapeHtml(brand.name).replace(/'/g,"\\'")}')">Release Superstar</button>
           </div>
         </div>
@@ -1458,6 +1419,157 @@ function renderBrandDashboard() {
   setChampionshipDropdownValues(brand.name);
 }
 
+
+
+function ensureSeasonData() {
+  if (!data.setup) data.setup = {};
+  if (!data.setup.seasonNumber) data.setup.seasonNumber = 1;
+  if (!data.seasonArchive) data.seasonArchive = [];
+
+  data.roster.forEach(w => {
+    if (typeof w.protected === "undefined") w.protected = false;
+    if (!w.baseClass) w.baseClass = w.classType;
+    if (!w.activeClass) w.activeClass = w.classType;
+  });
+
+  data.freeAgents.forEach(w => {
+    if (typeof w.protected === "undefined") w.protected = false;
+  });
+}
+
+function renderSeasonStatus() {
+  const box = document.getElementById("seasonStatus");
+  if (!box) return;
+
+  const seasonNumber = data.setup?.seasonNumber || 1;
+  const protectedCount = data.roster.filter(w => w.protected).length;
+
+  box.innerHTML = `
+    <strong>Current Season:</strong> ${seasonNumber}<br>
+    <strong>Protected Superstars:</strong> ${protectedCount}<br>
+    <strong>Rostered Superstars:</strong> ${data.roster.length}
+  `;
+}
+
+function protectedBadgeHtml(w) {
+  return w.protected ? `<div class="protected-badge">🛡 Protected</div>` : "";
+}
+
+function toggleProtected(wrestlerName, brandName) {
+  ensureSeasonData();
+
+  const wrestler = data.roster.find(w => w.name === wrestlerName && w.brand === brandName);
+  if (!wrestler) return alert("Superstar not found.");
+
+  wrestler.protected = !wrestler.protected;
+
+  transactionLog(
+    wrestler.protected ? "Protected" : "Unprotected",
+    `${wrestlerName} was ${wrestler.protected ? "protected" : "removed from protection"} by ${brandName}.`
+  );
+
+  saveData();
+  renderAll();
+}
+
+function getBaseRosterCopy(name) {
+  const base = fullRoster.find(w => w.name === name);
+  return base ? { ...base } : null;
+}
+
+function startNewSeason() {
+  ensureSeasonData();
+  ensureTransactionData();
+
+  if (!confirm("Start a new season? Protected superstars stay on their brands. Unprotected superstars move to Free Agency. Edited stats carry over.")) return;
+
+  const oldSeason = data.setup.seasonNumber || 1;
+
+  data.seasonArchive.push({
+    season: oldSeason,
+    completedDate: new Date().toLocaleString(),
+    roster: data.roster.map(w => ({ ...w })),
+    championships: JSON.parse(JSON.stringify(data.championships || {})),
+    activeRivalries: JSON.parse(JSON.stringify(data.activeRivalries || [])),
+    draftHistory: JSON.parse(JSON.stringify(data.draftHistory || []))
+  });
+
+  const protectedRoster = data.roster
+    .filter(w => w.protected)
+    .map(w => ({
+      ...w,
+      condition: "Active",
+      protected: false
+    }));
+
+  const unprotectedRoster = data.roster.filter(w => !w.protected);
+
+  const existingFA = new Set((data.freeAgents || []).map(w => w.name));
+
+  unprotectedRoster.forEach(w => {
+    if (!existingFA.has(w.name)) {
+      data.freeAgents.push({
+        ...w,
+        brand: "",
+        freeAgentType: "Released",
+        originalStatus: w.originalStatus || w.status || "Active",
+        protected: false
+      });
+      existingFA.add(w.name);
+    }
+  });
+
+  data.roster = protectedRoster;
+  data.draftHistory = [];
+  data.championships = {};
+  data.activeRivalries = [];
+  data.feuds = [];
+  data.draftConcluded = false;
+  data.setup.seasonNumber = oldSeason + 1;
+
+  // Reset budgets back to starting budget for the new draft season.
+  if (data.setup.brands) {
+    data.setup.brands.forEach(b => {
+      b.remainingBudget = b.startingBudget;
+    });
+  }
+
+  transactionLog("New Season", `Season ${oldSeason + 1} started. Protected superstars stayed with their brands; unprotected superstars moved to Free Agency.`);
+  saveData();
+  renderAll();
+  showTab("draft");
+  alert(`Season ${oldSeason + 1} started.`);
+}
+
+function restartMyGM() {
+  if (!confirm("Restart MyGM and reset everyone to base stats? This will erase rosters, free agency, titles, rivalries, draft history, edits, and protected statuses.")) return;
+  if (!confirm("Final confirmation: this cannot be undone unless you have a backup of your browser data.")) return;
+
+  localStorage.removeItem("mygmFamilyTrackerV3");
+
+  data = {
+    setup: { seasonNumber: 1 },
+    roster: [],
+    feuds: [],
+    draftHistory: [],
+    championships: {},
+    activeRivalries: [],
+    rivalryHistory: [],
+    freeAgents: [],
+    draftConcluded: false,
+    transactions: [],
+    seasonArchive: []
+  };
+
+  populateSetupDropdowns();
+  document.getElementById("seasonName").value = "";
+  activeBrand = "";
+  selectedDraftName = "";
+  saveData();
+  renderAll();
+  showTab("setup");
+  alert("MyGM has been reset to base.");
+}
 
 function ensureTransactionData() {
   if (!data.transactions) data.transactions = [];
@@ -1699,7 +1811,8 @@ function signFreeAgent(wrestlerName) {
     activeClass: wrestler.activeClass || wrestler.classType,
     bonusClass: wrestler.bonusClass || "",
     perk1: wrestler.perk1 || "",
-    perk4: wrestler.perk4 || ""
+    perk4: wrestler.perk4 || "",
+    protected: false
   });
 
   transactionLog("Signing", `${brand.name} signed ${wrestlerName} for ${money(cost)}.`);
@@ -1728,7 +1841,8 @@ function addLocalTalent() {
     classType: document.getElementById("localTalentClass").value,
     promo: Number(document.getElementById("localTalentPromo").value || 1),
     image: "",
-    brand: ""
+    brand: "",
+    protected: false
   };
 
   data.freeAgents.push(local);
@@ -1831,7 +1945,9 @@ function renderFeuds() {
 function renderAll() {
   ensureRivalryData();
   ensureTransactionData();
-  renderBrandDropdowns(); renderBudgetDisplay(); renderDraftRoom(); renderBrandTabs(); renderBrandDashboard(); renderFreeAgency(); renderHistory(); renderFeuds();
+  ensureSeasonData();
+  ensureSeasonData();
+  renderBrandDropdowns(); renderBudgetDisplay(); renderDraftRoom(); renderBrandTabs(); renderBrandDashboard(); renderFreeAgency(); renderHistory(); renderFeuds(); renderSeasonStatus();
 }
 
 function saveData() {
