@@ -910,16 +910,10 @@ function renderDraftHealthCheck() {
     </div>
 
     <div class="health-card">
-      <h4>Draft Needs</h4>
-      <div class="need-list">
-        ${needs.length ? needs.slice(0,5).map(n => `
-          <div class="need-item ${n.priority >= 80 ? "bad" : n.priority >= 60 ? "warn" : "good"}">
-            <strong>${escapeHtml(n.label)}</strong><br>
-            <span class="small">${escapeHtml(n.target)}</span>
-          </div>
-        `).join("") : `<div class="need-item good">✅ Roster balance looks strong.</div>`}
-      </div>
-    </div>
+<h4>Draft Needs</h4>
+<div class="need-list">
+   ...
+</div>
 
     <div class="health-card" style="margin-top:14px;">
       <h4>Suggested Picks for Current Need</h4>
