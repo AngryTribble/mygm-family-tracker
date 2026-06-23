@@ -82,7 +82,7 @@
     .season-warning { background:#451a03; border:1px solid #f59e0b; border-radius:14px; padding:12px; color:#fde68a; margin-top:12px; }
     .season-good { background:#052e16; border:1px solid #22c55e; border-radius:14px; padding:12px; color:#bbf7d0; margin-top:12px; }
 
-    .draft-control-row { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:14px; margin:16px 0; }
+    .draft-control-row { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:14px; margin:16px 0; }
     .last-pick-box { background:#0f172a; border:1px solid var(--line); border-radius:14px; padding:14px; }
     .last-pick-box strong { color:var(--gold); }
 
@@ -180,7 +180,7 @@
     <div class="last-pick-box">
       <label>View Draft Health For</label>
       <select id="draftHealthBrand" onchange="setDraftViewBrand(this.value)"></select>
-      <p class="small">Switch brands here to update health check, recommendations, and scout logic.</p>
+      <p class="small">Switch brands here to update health check and recommendations.</p>
     </div>
     <div id="lastSelectionBox" class="last-pick-box"></div>
   </div>
@@ -630,30 +630,25 @@ function scoreWrestlerForBrand(w, brandName) {
   let score = 0;
   let reasons = [];
 
-  // Popularity baseline.
-  score += Math.floor(w.pop / 10);
-  reasons.push(`Popularity adds +${Math.floor(w.pop/10)}`);
+  // Popularity is a tie-breaker, not the main driver.
+  score += Math.floor(w.pop / 20);
+  reasons.push(`Popularity tie-breaker +${Math.floor(w.pop / 20)}`);
 
-  // Gender balance.
+  // Gender balance is helpful, but should not overpower class fit.
   if (w.gender === "Female" && a.women <= a.men / 3) { score += 5; reasons.push("Women's division depth +5"); }
-  if (w.gender === "Male" && a.men <= a.women / 2) { score += 8; reasons.push("Needs more men +8"); }
+  if (w.gender === "Male" && a.men <= a.women / 3) { score += 5; reasons.push("Men's division depth +5"); }
 
   // Face/heel balance.
   if (w.role === "Face" && a.faces < a.heels) { score += 8; reasons.push("Needs faces +8"); }
   if (w.role === "Heel" && a.heels < a.faces) { score += 8; reasons.push("Needs heels +8"); }
 
-  // Class pairing logic.
-const counterpart = classCounter(w.classType);
-
-if ((a.classes[counterpart] || 0) > (a.classes[w.classType] || 0)) {
-  score += 28;
-  reasons.push(`${w.classType} pairs with existing ${counterpart} +28`);
-}
-
-if ((a.classes[w.classType] || 0) === 0) {
-  score += 22;
-  reasons.push(`No ${w.classType} yet +22`);
-}
+  // Class pairing logic is the top priority.
+  const counterpart = classCounter(w.classType);
+  if ((a.classes[counterpart] || 0) > (a.classes[w.classType] || 0)) {
+    score += 28; reasons.push(`${w.classType} pairs with existing ${counterpart} +28`);
+  }
+  if ((a.classes[w.classType] || 0) === 0) { score += 22; reasons.push(`No ${w.classType} yet +22`); }
+  if ((a.classes[w.classType] || 0) >= 3) { score -= 18; reasons.push(`Already heavy on ${w.classType} -18`); }
 
   // Specialists for promos.
   if (w.classType === "Specialist" && (a.classes.Specialist || 0) === 0) { score += 9; reasons.push("First Specialist +9"); }
@@ -691,15 +686,24 @@ function renderBudgetDisplay() {
 }
 
 
+function getDraftViewBrand() {
+  return document.getElementById("draftHealthBrand")?.value ||
+         document.getElementById("recommendBrand")?.value ||
+         activeBrand ||
+         data.setup.brands?.[0]?.name ||
+         "";
+}
+
 function setDraftViewBrand(brandName) {
   if (!brandName) return;
+
   activeBrand = brandName;
 
-  const draftHealthBrand = document.getElementById("draftHealthBrand");
-  const recommendBrand = document.getElementById("recommendBrand");
+  const healthSelect = document.getElementById("draftHealthBrand");
+  const recommendSelect = document.getElementById("recommendBrand");
 
-  if (draftHealthBrand && draftHealthBrand.value !== brandName) draftHealthBrand.value = brandName;
-  if (recommendBrand && recommendBrand.value !== brandName) recommendBrand.value = brandName;
+  if (healthSelect) healthSelect.value = brandName;
+  if (recommendSelect) recommendSelect.value = brandName;
 
   renderDraftRoom();
 }
@@ -708,9 +712,7 @@ function renderLastSelection() {
   const box = document.getElementById("lastSelectionBox");
   if (!box) return;
 
-  const last = data.draftHistory && data.draftHistory.length
-    ? data.draftHistory[data.draftHistory.length - 1]
-    : null;
+  const last = data.draftHistory?.length ? data.draftHistory[data.draftHistory.length - 1] : null;
 
   if (!last) {
     box.innerHTML = `
@@ -732,11 +734,11 @@ function renderLastSelection() {
       <span class="pill">${escapeHtml(wrestler.gender || "Unknown")}</span>
       <span class="pill">${escapeHtml(wrestler.role || "")}</span>
       <span class="pill">${escapeHtml(wrestler.classType || "")}</span>
-      <div class="small" style="margin-top:8px;">
-        Cost: ${money(last.cost)}<br>
-        ${escapeHtml(last.brand)} Remaining: ${money(last.remainingBudget)}
-      </div>
     ` : ""}
+    <div class="small" style="margin-top:8px;">
+      Cost: ${money(last.cost)}<br>
+      Remaining Budget: ${money(last.remainingBudget)}
+    </div>
   `;
 }
 
@@ -744,43 +746,202 @@ function renderLastSelection() {
 function renderBrandDropdowns() {
   const brands = data.setup.brands || [];
 
-  ["feudBrand","modalBrand"].forEach(id => {
+  ["feudBrand", "modalBrand"].forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;
+    const current = el.value;
     el.innerHTML = brands.map(b => `<option value="${escapeHtml(b.name)}">${escapeHtml(b.name)} - ${escapeHtml(b.gm)}</option>`).join("");
+    if (brands.some(b => b.name === current)) el.value = current;
   });
 
-  ["recommendBrand","draftHealthBrand"].forEach(id => {
+  ["recommendBrand", "draftHealthBrand"].forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;
 
-    const currentValue = el.value || activeBrand || brands?.[0]?.name || "";
+    const current = el.value || activeBrand || brands[0]?.name || "";
     el.innerHTML = brands.map(b => `<option value="${escapeHtml(b.name)}">${escapeHtml(b.name)} - ${escapeHtml(b.gm)}</option>`).join("");
 
-    if (brands.some(b => b.name === currentValue)) {
-      el.value = currentValue;
+    if (brands.some(b => b.name === current)) {
+      el.value = current;
     } else if (brands.length) {
       el.value = brands[0].name;
     }
   });
 
-  const selectedDraftBrand =
-    document.getElementById("draftHealthBrand")?.value ||
-    document.getElementById("recommendBrand")?.value ||
-    activeBrand ||
-    brands?.[0]?.name ||
-    "";
-
-  if (selectedDraftBrand) activeBrand = selectedDraftBrand;
-
-  const recommendBrand = document.getElementById("recommendBrand");
-  const draftHealthBrand = document.getElementById("draftHealthBrand");
-  if (recommendBrand && selectedDraftBrand) recommendBrand.value = selectedDraftBrand;
-  if (draftHealthBrand && selectedDraftBrand) draftHealthBrand.value = selectedDraftBrand;
+  const selected = getDraftViewBrand();
+  if (selected) {
+    activeBrand = selected;
+    const recommendBrand = document.getElementById("recommendBrand");
+    const draftHealthBrand = document.getElementById("draftHealthBrand");
+    if (recommendBrand) recommendBrand.value = selected;
+    if (draftHealthBrand) draftHealthBrand.value = selected;
+  }
 }
 
+
+function getBrandRosterForHealth(brandName) {
+  return data.roster.filter(w => w.brand === brandName);
+}
+
+function countBy(roster, field, value) {
+  return roster.filter(w => (w[field] || "") === value).length;
+}
+
+function getDraftNeeds(brandName) {
+  const roster = getBrandRosterForHealth(brandName);
+
+  const counts = {
+    Male: countBy(roster, "gender", "Male"),
+    Female: countBy(roster, "gender", "Female"),
+    Cruiser: countBy(roster, "classType", "Cruiser"),
+    Giant: countBy(roster, "classType", "Giant"),
+    Fighter: countBy(roster, "classType", "Fighter"),
+    Bruiser: countBy(roster, "classType", "Bruiser"),
+    Specialist: countBy(roster, "classType", "Specialist"),
+    Face: countBy(roster, "role", "Face"),
+    Heel: countBy(roster, "role", "Heel")
+  };
+
+  const needs = [];
+
+  if (counts.Female < 4) needs.push({ priority: 100, label: "Female division depth", target: "Draft more women", filterGender: "Female" });
+  if (counts.Male < 8) needs.push({ priority: 90, label: "Men's division depth", target: "Draft more men", filterGender: "Male" });
+
+  ["Cruiser","Giant","Fighter","Bruiser","Specialist"].forEach(cls => {
+    if (counts[cls] === 0) {
+      needs.push({ priority: 85, label: `No ${cls}s drafted`, target: `Draft a ${cls}`, filterClass: cls });
+    } else if (counts[cls] < 2) {
+      needs.push({ priority: 55, label: `${cls} depth is thin`, target: `Add another ${cls}`, filterClass: cls });
+    }
+  });
+
+  const faceHeelGap = Math.abs(counts.Face - counts.Heel);
+  if (faceHeelGap >= 4) {
+    const neededRole = counts.Face < counts.Heel ? "Face" : "Heel";
+    needs.push({ priority: 70, label: `${neededRole} depth is low`, target: `Draft a ${neededRole}`, filterRole: neededRole });
+  }
+
+  const classPairs = [
+    ["Cruiser", "Giant"],
+    ["Fighter", "Bruiser"]
+  ];
+
+  classPairs.forEach(([a,b]) => {
+    if (counts[a] > counts[b] + 1) {
+      needs.push({ priority: 65, label: `${a}s need ${b}s`, target: `Draft a ${b}`, filterClass: b });
+    }
+    if (counts[b] > counts[a] + 1) {
+      needs.push({ priority: 65, label: `${b}s need ${a}s`, target: `Draft a ${a}`, filterClass: a });
+    }
+  });
+
+  needs.sort((a,b) => b.priority - a.priority);
+  return { counts, needs };
+}
+
+function getSuggestedPicksForNeed(brandName, need) {
+  let list = availableRoster();
+
+  if (need.filterGender) list = list.filter(w => w.gender === need.filterGender);
+  if (need.filterClass) list = list.filter(w => w.classType === need.filterClass);
+  if (need.filterRole) list = list.filter(w => w.role === need.filterRole);
+
+  return list
+    .map(w => ({ ...w, fit: scoreWrestlerForBrand(w, brandName) }))
+    .sort((a,b) => b.fit.score - a.fit.score || b.pop - a.pop)
+    .slice(0,3);
+}
+
+function renderDraftHealthCheck() {
+  const box = document.getElementById("draftHealthCheck");
+  if (!box) return;
+
+  const brandName = getDraftViewBrand();
+  if (!brandName) {
+    box.innerHTML = `<p class="small">Save setup first, then select a brand to see draft health.</p>`;
+    return;
+  }
+
+  const roster = getBrandRosterForHealth(brandName);
+  const { counts, needs } = getDraftNeeds(brandName);
+
+  const targetRoster = 20;
+  const rosterScore = Math.min(100, Math.round((roster.length / targetRoster) * 100));
+  const genderBalanceScore = roster.length ? Math.max(0, 100 - Math.abs(counts.Male - counts.Female) * 6) : 0;
+  const classCoverage = ["Cruiser","Giant","Fighter","Bruiser","Specialist"].filter(c => counts[c] > 0).length;
+  const classScore = Math.round((classCoverage / 5) * 100);
+  const roleBalanceScore = roster.length ? Math.max(0, 100 - Math.abs(counts.Face - counts.Heel) * 10) : 0;
+  const overall = Math.round((rosterScore + genderBalanceScore + classScore + roleBalanceScore) / 4);
+
+  const topNeed = needs[0];
+  const suggested = topNeed ? getSuggestedPicksForNeed(brandName, topNeed) : [];
+
+  box.innerHTML = `
+    <div class="health-grid">
+      <div class="health-card">
+        <h4>${escapeHtml(brandName)} Health Score</h4>
+        <div class="health-score">${overall}%</div>
+        <div class="health-bar"><div class="health-bar-fill" style="width:${overall}%"></div></div>
+        <span class="pill ${overall >= 75 ? "good" : overall >= 45 ? "warn" : "bad"}">
+          ${overall >= 75 ? "Strong" : overall >= 45 ? "Developing" : "Needs Help"}
+        </span>
+      </div>
+
+      <div class="health-card">
+        <h4>Gender Balance</h4>
+        <span class="pill">Male: ${counts.Male}</span>
+        <span class="pill">Female: ${counts.Female}</span>
+        <div class="small">Target: enough depth for men's and women's titles.</div>
+      </div>
+
+      <div class="health-card">
+        <h4>Role Balance</h4>
+        <span class="pill">Face: ${counts.Face}</span>
+        <span class="pill">Heel: ${counts.Heel}</span>
+        <div class="small">Keep both sides deep enough for rivalries.</div>
+      </div>
+
+      <div class="health-card">
+        <h4>Class Coverage</h4>
+        ${["Cruiser","Giant","Fighter","Bruiser","Specialist"].map(c => `
+          <span class="pill ${counts[c] >= 2 ? "good" : counts[c] === 1 ? "warn" : "bad"}">${c}: ${counts[c]}</span>
+        `).join("")}
+      </div>
+    </div>
+
+    <div class="health-card">
+      <h4>Draft Needs</h4>
+      <div class="need-list">
+        ${needs.length ? needs.slice(0,5).map(n => `
+          <div class="need-item ${n.priority >= 80 ? "bad" : n.priority >= 60 ? "warn" : "good"}">
+            <strong>${escapeHtml(n.label)}</strong><br>
+            <span class="small">${escapeHtml(n.target)}</span>
+          </div>
+        `).join("") : `<div class="need-item good">✅ Roster balance looks strong.</div>`}
+      </div>
+    </div>
+
+    <div class="health-card" style="margin-top:14px;">
+      <h4>Suggested Picks for Current Need</h4>
+      ${topNeed ? `<p class="small">Top need: ${escapeHtml(topNeed.target)}</p>` : ""}
+      ${suggested.length ? suggested.map(w => `
+        <div class="recommendation-item">
+          <strong>${escapeHtml(w.name)}</strong><br>
+          <span class="stars">${stars(w.fit.score)}</span>
+          <span class="small"> Fit Score: ${w.fit.score}</span><br>
+          <span class="pill">${escapeHtml(w.gender)}</span>
+          <span class="pill">${escapeHtml(w.role)}</span>
+          <span class="pill">${escapeHtml(w.classType)}</span>
+          <div class="small">Pop ${w.pop} • Ring ${w.ring} • Promo ${w.promo}</div>
+        </div>
+      `).join("") : `<p class="small">No specific need-based suggestions right now.</p>`}
+    </div>
+  `;
+}
+
+
 function renderRecommendations() {
-  const brandName = document.getElementById("draftHealthBrand")?.value || document.getElementById("recommendBrand")?.value || activeBrand || data.setup.brands?.[0]?.name;
+  const brandName = getDraftViewBrand();
   activeBrand = brandName || activeBrand;
   const box = document.getElementById("recommendations");
   if (!box) return;
@@ -928,7 +1089,7 @@ function renderDraftRoom() {
   renderBudgetDisplay(); renderBrandDropdowns(); renderLastSelection(); renderRecommendations(); renderDraftHealthCheck();
   const board = document.getElementById("draftCards");
   if (!board) return;
-  const brandName = document.getElementById("draftHealthBrand")?.value || document.getElementById("recommendBrand")?.value || activeBrand || data.setup.brands?.[0]?.name || "";
+  const brandName = getDraftViewBrand();
   const search = (document.getElementById("searchBox")?.value || "").toLowerCase();
   const fg = document.getElementById("filterGender")?.value || "";
   const fc = document.getElementById("filterClass")?.value || "";
