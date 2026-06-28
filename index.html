@@ -31,6 +31,9 @@
     th,td { border-bottom:1px solid var(--line); padding:10px; text-align:left; vertical-align:top; }
     th { color:var(--gold); }
     .budget-box,.stat-box,.recommendation-box { background:#0f172a; padding:14px; border-radius:14px; border:1px solid var(--line); }
+
+    .setup-player-card { transition:border-color .2s ease, box-shadow .2s ease, transform .18s ease; }
+    .setup-player-card.brand-selected { border-color:var(--brand-color, var(--gold)); box-shadow:0 0 24px color-mix(in srgb, var(--brand-color, var(--gold)) 35%, transparent); }
     .stat-box strong { font-size:1.4rem; color:var(--gold); }
     .pill { display:inline-block; padding:4px 8px; border-radius:999px; background:#334155; color:white; margin:2px; font-size:.78rem; }
     .pill.good { background:#166534; } .pill.warn { background:#854d0e; } .pill.bad { background:#7f1d1d; }
@@ -92,6 +95,10 @@
     .on-clock-banner { margin:14px 0; padding:14px 16px; border-radius:14px; background:#0f172a; border:2px solid var(--brand-color, var(--gold)); box-shadow:0 0 24px color-mix(in srgb, var(--brand-color, var(--gold)) 30%, transparent); font-size:1.35rem; font-weight:900; text-align:center; letter-spacing:.08em; text-transform:uppercase; }
     #draft.card { transition:border-color .2s ease, box-shadow .2s ease; border:1px solid transparent; }
 
+    #roster.card { transition:border-color .2s ease, box-shadow .2s ease; border:1px solid transparent; }
+    .brand-dashboard-glow { border-color:var(--brand-color, var(--gold)) !important; box-shadow:0 0 30px color-mix(in srgb, var(--brand-color, var(--gold)) 30%, transparent) !important; }
+    .brand-tabs button.active { box-shadow:0 0 0 2px var(--brand-color, var(--gold)), 0 0 18px color-mix(in srgb, var(--brand-color, var(--gold)) 35%, transparent); border-color:var(--brand-color, var(--gold)); }
+
     .health-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:14px; margin:14px 0; }
     .health-card { background:#0f172a; border:1px solid var(--line); border-radius:14px; padding:14px; }
     .health-card h4 { margin:0 0 8px; color:var(--gold); }
@@ -135,34 +142,34 @@
   <input id="seasonName" placeholder="Example: Brown Family WWE 2K26 Season">
 
   <div class="grid">
-    <div class="budget-box">
+    <div class="budget-box setup-player-card" id="setupPlayerCard1">
       <h3>Player 1</h3>
       <label>Controller</label><select id="controller1"></select>
-      <label>Brand</label><select id="brand1"></select>
+      <label>Brand</label><select id="brand1" onchange="updateSetupBrandGlow(1)"></select>
       <label>GM</label><select id="gm1"></select>
       <label>Starting Budget</label><select id="budget1"></select>
       <label>Draft Philosophy</label><select id="philosophy1"></select>
     </div>
-    <div class="budget-box">
+    <div class="budget-box setup-player-card" id="setupPlayerCard2">
       <h3>Player 2</h3>
       <label>Controller</label><select id="controller2"></select>
-      <label>Brand</label><select id="brand2"></select>
+      <label>Brand</label><select id="brand2" onchange="updateSetupBrandGlow(2)"></select>
       <label>GM</label><select id="gm2"></select>
       <label>Starting Budget</label><select id="budget2"></select>
       <label>Draft Philosophy</label><select id="philosophy2"></select>
     </div>
-    <div class="budget-box">
+    <div class="budget-box setup-player-card" id="setupPlayerCard3">
       <h3>Player 3</h3>
       <label>Controller</label><select id="controller3"></select>
-      <label>Brand</label><select id="brand3"></select>
+      <label>Brand</label><select id="brand3" onchange="updateSetupBrandGlow(3)"></select>
       <label>GM</label><select id="gm3"></select>
       <label>Starting Budget</label><select id="budget3"></select>
       <label>Draft Philosophy</label><select id="philosophy3"></select>
     </div>
-    <div class="budget-box">
+    <div class="budget-box setup-player-card" id="setupPlayerCard4">
       <h3>Player 4</h3>
       <label>Controller</label><select id="controller4"></select>
-      <label>Brand</label><select id="brand4"></select>
+      <label>Brand</label><select id="brand4" onchange="updateSetupBrandGlow(4)"></select>
       <label>GM</label><select id="gm4"></select>
       <label>Starting Budget</label><select id="budget4"></select>
       <label>Draft Philosophy</label><select id="philosophy4"></select>
@@ -591,10 +598,34 @@ function beltImageBlock(titleName) {
   `;
 }
   
+
+function updateSetupBrandGlow(playerNumber) {
+  const card = document.getElementById("setupPlayerCard" + playerNumber);
+  const brandSelect = document.getElementById("brand" + playerNumber);
+  if (!card || !brandSelect) return;
+
+  const brandName = brandSelect.value;
+  if (!brandName) {
+    card.classList.remove("brand-selected");
+    card.style.removeProperty("--brand-color");
+    return;
+  }
+
+  const color = getBrandColor(brandName);
+  card.style.setProperty("--brand-color", color);
+  card.classList.add("brand-selected");
+}
+
+function updateAllSetupBrandGlows() {
+  [1,2,3,4].forEach(i => updateSetupBrandGlow(i));
+}
+
+
 function populateSetupDropdowns() {
   [1,2,3,4].forEach(i => {
     document.getElementById("controller"+i).innerHTML = controllerOptions.map(x=>`<option>${x}</option>`).join("");
     document.getElementById("brand"+i).innerHTML = `<option value="">Select Brand</option>` + brandOptions.map(x=>`<option>${x}</option>`).join("");
+    document.getElementById("brand"+i).onchange = () => updateSetupBrandGlow(i);
     document.getElementById("gm"+i).innerHTML = `<option value="">Select GM</option>` + gmOptions.map(x=>`<option>${x}</option>`).join("");
     document.getElementById("budget"+i).innerHTML = budgetOptions.map(x=>`<option value="${x}">${money(x)}</option>`).join("");
     document.getElementById("philosophy"+i).innerHTML = philosophyOptions.map(x=>`<option>${x}</option>`).join("");
@@ -605,6 +636,7 @@ function showTab(tab) {
   document.querySelectorAll("section").forEach(s => s.classList.add("hidden"));
   document.getElementById(tab).classList.remove("hidden");
   renderAll();
+  updateAllSetupBrandGlows();
 }
 
 function saveSetup() {
@@ -633,7 +665,7 @@ function saveSetup() {
     seasonNumber: data.setup?.seasonNumber || 1
   };
   if (!activeBrand && brands.length) activeBrand = brands[0].name;
-  saveData(); renderAll(); alert("League setup saved!");
+  saveData(); updateAllSetupBrandGlows(); renderAll(); alert("League setup saved!");
 }
 
 function getDraftedNames() { return data.roster.map(w => w.name); }
@@ -796,6 +828,20 @@ function setDraftRoomBrandStyle(brandName) {
     banner.style.setProperty("--brand-color", color);
     banner.textContent = brandName ? `${brandName} IS ON THE CLOCK` : "Select a brand to put them on the clock";
   }
+}
+
+
+
+function setRosterDashboardBrandStyle(brandName) {
+  const rosterSection = document.getElementById("roster");
+  const color = getBrandColor(brandName);
+
+  if (!rosterSection) return;
+
+  rosterSection.style.setProperty("--brand-color", color);
+  rosterSection.style.borderColor = color;
+  rosterSection.style.boxShadow = `0 0 30px ${color}33`;
+  rosterSection.classList.add("brand-dashboard-glow");
 }
 
 
@@ -1333,7 +1379,16 @@ function renderBrandTabs() {
   if (!tabs) return;
   const brands = data.setup.brands || [];
   if (!activeBrand && brands.length) activeBrand = brands[0].name;
-  tabs.innerHTML = brands.map(b => `<button class="${b.name===activeBrand?'active':''}" onclick="activeBrand='${escapeHtml(b.name).replace(/'/g,"\\'")}'; renderBrandDashboard(); renderBrandTabs();">${escapeHtml(b.name)}</button>`).join("");
+
+  tabs.innerHTML = brands.map(b => {
+    const color = getBrandColor(b.name);
+    return `<button 
+      class="${b.name===activeBrand?'active':''}" 
+      style="--brand-color:${color};" 
+      onclick='activeBrand=${jsString(b.name)}; setRosterDashboardBrandStyle(${jsString(b.name)}); renderBrandDashboard(); renderBrandTabs();'>
+        ${escapeHtml(b.name)}
+      </button>`;
+  }).join("");
 }
 
 
@@ -1618,6 +1673,7 @@ function addBrandRivalry(brandName) {
 
   saveData();
   renderAll();
+  updateAllSetupBrandGlows();
 }
 
 function completeRivalry(rivalryId) {
@@ -1664,6 +1720,7 @@ function renderBrandDashboard() {
   const brand = (data.setup.brands || []).find(b => b.name === activeBrand) || (data.setup.brands || [])[0];
   if (!brand) { area.innerHTML = `<p>Save your league setup first.</p>`; return; }
   activeBrand = brand.name;
+  setRosterDashboardBrandStyle(brand.name);
   const a = analyzeBrand(brand.name);
   const feuds = data.feuds.filter(f => f.brand === brand.name);
 
@@ -2290,6 +2347,7 @@ function loadData() {
     activeBrand = data.setup.brands[0]?.name || "";
   }
   renderAll();
+  updateAllSetupBrandGlows();
 }
 
 function resetData() {
