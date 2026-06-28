@@ -373,7 +373,7 @@
   <div class="grid">
     <div class="budget-box">
       <label>Week Number</label>
-      <input id="weeklyWeek" type="number" min="1" max="52" value="1" onchange="renderWeeklyShows()">
+      <input id="weeklyWeek" type="number" min="1" max="50" value="1" onchange="renderWeeklyShows()">
       <label>Brand</label>
       <select id="weeklyBrand" onchange="setWeeklyBrand(this.value)"></select>
       <button class="save" onclick="saveWeeklyShow()">Save Weekly Card</button>
@@ -2767,18 +2767,184 @@ function suggestWeeklyMatch(brandName) {
   return best;
 }
 
+
+function collectCurrentWeeklyCardState(fallbackRecord = {}) {
+  // Captures unsaved selections before the card re-renders.
+  // This keeps match rules, wrestlers, winners, ratings, stamina and pop entries from disappearing.
+  const existingBuilder = document.getElementById("weeklyCardBuilder");
+  if (!existingBuilder || !existingBuilder.innerHTML.trim()) return fallbackRecord || {};
+
+  const matches = [];
+  const promos = [];
+
+  weeklySegments.forEach(segment => {
+    if (segment.type === "match") {
+      const selectedRule = getMatchRule(document.getElementById(`${segment.id}-rule`)?.value || ruleKey(matchRuleOptions[0]));
+      const participants = [];
+
+      for (let i = 1; i <= selectedRule.wrestlers; i++) {
+        const name = document.getElementById(`${segment.id}-w${i}`)?.value || "";
+        participants.push(name);
+      }
+
+      const after = {};
+      participants.filter(Boolean).forEach((name, idx) => {
+        const n = idx + 1;
+        const staminaValue = document.getElementById(`${segment.id}-w${n}-stamina-after`)?.value;
+        const popValue = document.getElementById(`${segment.id}-w${n}-pop-after`)?.value;
+
+        after[name] = {
+          stamina: staminaValue === "" || typeof staminaValue === "undefined" ? "" : Number(staminaValue),
+          pop: popValue === "" || typeof popValue === "undefined" ? "" : Number(popValue)
+        };
+      });
+
+      matches.push({
+        slotId: segment.id,
+        label: segment.label,
+        ruleKey: ruleKey(selectedRule),
+        rule: selectedRule,
+        participants,
+        winner: document.getElementById(`${segment.id}-winner`)?.value || "",
+        titleMatch: document.getElementById(`${segment.id}-titleMatch`)?.value || "No",
+        rating: document.getElementById(`${segment.id}-rating`)?.value || "",
+        after
+      });
+    } else {
+      promos.push({
+        slotId: segment.id,
+        label: segment.label,
+        wrestler: document.getElementById(`${segment.id}-wrestler`)?.value || "",
+        promoType: document.getElementById(`${segment.id}-type`)?.value || "Self Promo",
+        result: document.getElementById(`${segment.id}-result`)?.value || "",
+        staminaAfter: document.getElementById(`${segment.id}-stamina-after`)?.value || "",
+        popAfter: document.getElementById(`${segment.id}-pop-after`)?.value || ""
+      });
+    }
+  });
+
+  return {
+    ...(fallbackRecord || {}),
+    matches,
+    promos,
+    notes: document.getElementById("weeklyNotes")?.value ?? fallbackRecord?.notes ?? ""
+  };
+}
+
+function syncWeeklyWinnerDropdown(segmentId, participants, winner) {
+  const select = document.getElementById(`${segmentId}-winner`);
+  if (!select) return;
+
+  const current = winner || select.value || "";
+  select.innerHTML = `
+    <option value="">No Result Yet</option>
+    ${participants.filter(Boolean).map(name => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join("")}
+    <option value="Draw">Draw / No Contest</option>
+  `;
+
+  if ([...select.options].some(o => o.value === current)) {
+    select.value = current;
+  }
+}
+
+
+
+function getCurrentWeeklyRoster() {
+  const brandName = document.getElementById("weeklyBrand")?.value || activeBrand || "";
+  return data.roster.filter(w => w.brand === brandName).sort((a,b) => a.name.localeCompare(b.name));
+}
+
+function getMatchParticipantsFromSegment(segmentId) {
+  const names = [];
+  for (let i = 1; i <= 8; i++) {
+    const el = document.getElementById(`${segmentId}-w${i}`);
+    if (el && el.value) names.push(el.value);
+  }
+  return names;
+}
+
+function updateWinnerDropdownForSegment(segmentId) {
+  const winnerSelect = document.getElementById(`${segmentId}-winner`);
+  if (!winnerSelect) return;
+
+  const currentWinner = winnerSelect.value || "";
+  const participants = getMatchParticipantsFromSegment(segmentId);
+
+  winnerSelect.innerHTML = `
+    <option value="">No Result Yet</option>
+    ${participants.map(name => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join("")}
+    <option value="Draw">Draw / No Contest</option>
+  `;
+
+  if ([...winnerSelect.options].some(o => o.value === currentWinner)) {
+    winnerSelect.value = currentWinner;
+  }
+}
+
+function updateWeeklyMatchSegment(segmentId) {
+  const ruleSelect = document.getElementById(`${segmentId}-rule`);
+  const container = document.getElementById(`${segmentId}-participants`);
+  const meta = document.getElementById(`${segmentId}-rule-meta`);
+  if (!ruleSelect || !container) return;
+
+  const selectedRule = getMatchRule(ruleSelect.value || ruleKey(matchRuleOptions[0]));
+  const roster = getCurrentWeeklyRoster();
+  const oldSelections = getMatchParticipantsFromSegment(segmentId);
+
+  if (meta) {
+    meta.innerHTML = `
+      <span>Wrestlers Needed: ${selectedRule.wrestlers}</span>
+      <span>Stamina Cost: ${escapeHtml(selectedRule.stamina)}</span>
+      <span>Quality Boost: ${escapeHtml(selectedRule.quality)}</span>
+      <span>Ring XP Gain: ${escapeHtml(selectedRule.xp)}</span>
+      <span class="${ruleCostLabel(selectedRule).cls}">Estimated Cost: ${ruleCostLabel(selectedRule).label}</span>
+    `;
+  }
+
+  container.innerHTML = Array.from({ length: selectedRule.wrestlers }, (_, idx) => {
+    const n = idx + 1;
+    const selected = oldSelections[idx] || "";
+    const wrestler = roster.find(w => w.name === selected);
+    return `
+      <div>
+        <label>Wrestler ${n}</label>
+        <select id="${segmentId}-w${n}" onchange="updateWeeklyCardLive()">${rosterOptionsForWeekly(roster, selected)}</select>
+        <label class="small">Stamina After</label>
+        <input id="${segmentId}-w${n}-stamina-after" type="number" min="0" max="100" value="" placeholder="${wrestler ? wrestler.stamina ?? wrestler.startingStamina ?? 70 : ""}">
+        <label class="small">Popularity After</label>
+        <input id="${segmentId}-w${n}-pop-after" type="number" min="0" max="100" value="" placeholder="${wrestler ? wrestler.pop ?? 0 : ""}">
+      </div>
+    `;
+  }).join("");
+
+  updateWinnerDropdownForSegment(segmentId);
+  updateUnusedRosterList();
+}
+
+function updateWeeklyCardLive() {
+  weeklySegments.forEach(segment => {
+    if (segment.type === "match") updateWinnerDropdownForSegment(segment.id);
+  });
+  updateUnusedRosterList();
+}
+
+
 function renderWeeklyShows() {
   ensureWeeklyData();
   renderWeeklyBrandDropdown();
 
-  const week = Number(document.getElementById("weeklyWeek")?.value || data.season.currentWeek || 1);
+  let week = Number(document.getElementById("weeklyWeek")?.value || data.season.currentWeek || 1);
+  week = Math.max(1, Math.min(50, week));
+  const weeklyWeekInput = document.getElementById("weeklyWeek");
+  if (weeklyWeekInput) weeklyWeekInput.value = week;
   const brandName = document.getElementById("weeklyBrand")?.value || activeBrand || data.setup.brands?.[0]?.name || "";
   const showType = isPleWeek(week) ? "PLE" : "Weekly Show";
 
   const typeBox = document.getElementById("weeklyShowType");
   if (typeBox) typeBox.textContent = `Week ${week}: ${showType}`;
 
-  const record = getWeeklyRecord(week, brandName);
+  const savedRecord = getWeeklyRecord(week, brandName);
+  const record = collectCurrentWeeklyCardState(savedRecord || {});
   const notes = document.getElementById("weeklyNotes");
   if (notes) notes.value = record?.notes || "";
 
@@ -2843,7 +3009,8 @@ function renderWeeklyShows() {
 function saveWeeklyShow() {
   ensureWeeklyData();
 
-  const week = Number(document.getElementById("weeklyWeek")?.value || 1);
+  let week = Number(document.getElementById("weeklyWeek")?.value || 1);
+  week = Math.max(1, Math.min(50, week));
   const brandName = document.getElementById("weeklyBrand")?.value || activeBrand || "";
   if (!brandName) return alert("Select a brand first.");
 
@@ -3336,7 +3503,7 @@ function renderMatchSegment(segment, roster, record) {
     return `
       <div>
         <label>Wrestler ${n}</label>
-        <select id="${segment.id}-w${n}" onchange="renderWeeklyShows()">${rosterOptionsForWeekly(roster, selected)}</select>
+        <select id="${segment.id}-w${n}" onchange="updateWeeklyCardLive()">${rosterOptionsForWeekly(roster, selected)}</select>
         <label class="small">Stamina After</label>
         <input id="${segment.id}-w${n}-stamina-after" type="number" min="0" max="100" value="${saved.after?.[selected]?.stamina ?? ""}" placeholder="${wrestler ? wrestler.stamina ?? wrestler.startingStamina ?? 70 : ""}">
         <label class="small">Popularity After</label>
@@ -3352,11 +3519,11 @@ function renderMatchSegment(segment, roster, record) {
       <h3>${escapeHtml(segment.label)}</h3>
 
       <label>Match Rules</label>
-      <select id="${segment.id}-rule" onchange="renderWeeklyShows()">
+      <select id="${segment.id}-rule" onchange="updateWeeklyMatchSegment('${segment.id}')">
         ${renderRuleOptions(selectedRuleKey)}
       </select>
 
-      <div class="rule-meta">
+      <div id="${segment.id}-rule-meta" class="rule-meta">
         <span>Wrestlers Needed: ${selectedRule.wrestlers}</span>
         <span>Stamina Cost: ${escapeHtml(selectedRule.stamina)}</span>
         <span>Quality Boost: ${escapeHtml(selectedRule.quality)}</span>
@@ -3364,7 +3531,7 @@ function renderMatchSegment(segment, roster, record) {
         <span class="${ruleCostLabel(selectedRule).cls}">Estimated Cost: ${ruleCostLabel(selectedRule).label}</span>
       </div>
 
-      <div class="match-wrestler-grid">
+      <div id="${segment.id}-participants" class="match-wrestler-grid">
         ${participantSelectors}
       </div>
 
@@ -3406,7 +3573,7 @@ function renderPromoSegment(segment, roster, record) {
       <div class="promo-strip">
         <div>
           <label>Superstar</label>
-          <select id="${segment.id}-wrestler" onchange="renderWeeklyShows()">${rosterOptionsForWeekly(roster, wrestler)}</select>
+          <select id="${segment.id}-wrestler" onchange="updateWeeklyCardLive()">${rosterOptionsForWeekly(roster, wrestler)}</select>
         </div>
         <div>
           <label>Promo Type</label>
@@ -3435,7 +3602,10 @@ function renderWeeklyShows() {
   ensureWeeklyData();
   renderWeeklyBrandDropdown();
 
-  const week = Number(document.getElementById("weeklyWeek")?.value || data.season.currentWeek || 1);
+  let week = Number(document.getElementById("weeklyWeek")?.value || data.season.currentWeek || 1);
+  week = Math.max(1, Math.min(50, week));
+  const weeklyWeekInput = document.getElementById("weeklyWeek");
+  if (weeklyWeekInput) weeklyWeekInput.value = week;
   const brandName = document.getElementById("weeklyBrand")?.value || activeBrand || data.setup.brands?.[0]?.name || "";
   activeBrand = brandName || activeBrand;
 
