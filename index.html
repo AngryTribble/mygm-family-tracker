@@ -3107,7 +3107,7 @@ function renderParticipantPanel(wrestlerName, brandName, label) {
   return `
     <div class="participant-panel">
       <div class="small">${escapeHtml(label)}</div>
-      <div class="render-box">${imageBlock(w)}</div>
+      <div class="render-box">${renderWrestlerImage(w)}</div>
       <strong>${escapeHtml(w.name)}</strong><br>
       <span class="pill">${escapeHtml(w.role || "")}</span>
       <span class="pill">${escapeHtml(w.classType || "")}</span><br>
