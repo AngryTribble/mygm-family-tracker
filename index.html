@@ -2849,6 +2849,11 @@ function suggestWeeklyMatch(brandName) {
 
 
 function collectCurrentWeeklyCardState(fallbackRecord = {}) {
+  const { week, brandName } = currentWeeklyContext();
+  if (!brandName) return fallbackRecord || {};
+  cacheVisibleWeeklySegment();
+  return getCachedWeeklyRecord(week, brandName);
+}) {
   // Captures unsaved selections before the card re-renders.
   // This keeps match rules, wrestlers, winners, ratings, stamina and pop entries from disappearing.
   const existingBuilder = document.getElementById("weeklyCardBuilder");
@@ -2963,42 +2968,34 @@ function updateWinnerDropdownForSegment(segmentId) {
 }
 
 function updateWeeklyMatchSegment(segmentId) {
-  const ruleSelect = document.getElementById(`${segmentId}-rule`);
-  const container = document.getElementById(`${segmentId}-participants`);
-  const meta = document.getElementById(`${segmentId}-rule-meta`);
-  if (!ruleSelect || !container) return;
+  const { brandName } = currentWeeklyContext();
+  const segment = weeklySegments.find(s => s.id === segmentId);
+  if (!segment || !brandName) return;
 
-  const selectedRule = getMatchRule(ruleSelect.value || ruleKey(matchRuleOptions[0]));
-  const roster = getCurrentWeeklyRoster();
+  const ruleSelect = document.getElementById(`${segmentId}-rule`);
+  const selectedRule = getMatchRule(ruleSelect?.value || ruleKey(matchRuleOptions[0]));
   const oldSelections = getMatchParticipantsFromSegment(segmentId);
 
-  if (meta) {
-    meta.innerHTML = `
-      <span>${selectedRule.wrestlers} Wrestlers</span>
-      <span>S: ${escapeHtml(selectedRule.stamina)}</span>
-      <span>Q: ${escapeHtml(selectedRule.quality)}</span>
-      <span>X: ${escapeHtml(selectedRule.xp)}</span>
-      <span class="${ruleCostLabel(selectedRule).cls}">${ruleCostLabel(selectedRule).label}</span>
-    `;
-  }
+  const cache = getCachedWeeklyRecord(Number(document.getElementById("weeklyWeek")?.value || 1), brandName);
+  const existing = (cache.matches || []).find(m => m.slotId === segmentId) || {};
 
-  container.innerHTML = Array.from({ length: selectedRule.wrestlers }, (_, idx) => {
-    const n = idx + 1;
-    const selected = oldSelections[idx] || "";
-    const wrestler = roster.find(w => w.name === selected);
-    return `
-      <div>
-        <label>Wrestler ${n}</label>
-        <select id="${segmentId}-w${n}" onchange="updateWeeklyCardLive()">${rosterOptionsForWeekly(roster, selected)}</select>
-        <label class="small">Stamina After</label>
-        <input id="${segmentId}-w${n}-stamina-after" type="number" min="0" max="100" value="" placeholder="${wrestler ? wrestler.stamina ?? wrestler.startingStamina ?? 70 : ""}">
-        <label class="small">Popularity After</label>
-        <input id="${segmentId}-w${n}-pop-after" type="number" min="0" max="100" value="" placeholder="${wrestler ? wrestler.pop ?? 0 : ""}">
-      </div>
-    `;
-  }).join("");
+  const participants = Array.from({ length: selectedRule.wrestlers }, (_, idx) => oldSelections[idx] || existing.participants?.[idx] || "");
 
-  updateWeeklyCardLive();
+  upsertCachedMatch(cache, {
+    ...existing,
+    slotId: segment.id,
+    label: segment.label,
+    ruleKey: ruleKey(selectedRule),
+    rule: selectedRule,
+    participants,
+    winner: existing.winner || "",
+    titleMatch: existing.titleMatch || "No",
+    rating: existing.rating || "",
+    before: existing.before || {},
+    after: existing.after || {}
+  });
+
+  refreshWeeklyCommandCenterFromCache();
 }
 
 
@@ -3042,26 +3039,13 @@ function updatePromoSegment(segmentId) {
 }
 
 function updateWeeklyCardLive() {
-  const brandName = document.getElementById("weeklyBrand")?.value || activeBrand || "";
-  const week = Number(document.getElementById("weeklyWeek")?.value || data.season?.currentWeek || 1);
-  const savedRecord = getWeeklyRecord(week, brandName) || {};
-  const liveRecord = collectCurrentWeeklyCardState(savedRecord);
+  cacheVisibleWeeklySegment();
 
   weeklySegments.forEach(segment => {
     if (segment.type === "match") updateWinnerDropdownForSegment(segment.id);
   });
 
-  const roster = data.roster.filter(w => w.brand === brandName).sort((a,b) => a.name.localeCompare(b.name));
-  const selectedSegment = weeklySegments.find(s => s.id === activeWeeklySegment) || weeklySegments[0];
-  const builder = document.getElementById("weeklyCardBuilder");
-
-  if (builder) {
-    builder.innerHTML = renderSelectedWeeklyDetail(selectedSegment, roster, liveRecord, brandName);
-  }
-
-  renderWeeklySegmentList(liveRecord, brandName);
-  renderDramaCurveAssistant(brandName, liveRecord);
-  updateUnusedRosterList();
+  refreshWeeklyCommandCenterFromCache();
 }
 
 
@@ -3074,9 +3058,9 @@ function updateWeeklyCardLive() {
 var activeWeeklySegment = typeof activeWeeklySegment !== "undefined" ? activeWeeklySegment : "opener";
 
 function setActiveWeeklySegment(segmentId) {
-  captureVisibleSegmentToCache();
+  cacheVisibleWeeklySegment();
   activeWeeklySegment = segmentId;
-  renderWeeklyShows();
+  refreshWeeklyCommandCenterFromCache();
 }
 
 function getSavedSegment(record, segment) {
@@ -3402,6 +3386,148 @@ function renderDramaCurveAssistant(brandName, record = null) {
   `;
 }
 
+
+// =========================================
+// WEEKLY CARD MULTI-SEGMENT CACHE PATCH
+// =========================================
+function currentWeeklyContext() {
+  const weekInput = document.getElementById("weeklyWeek");
+  const brandInput = document.getElementById("weeklyBrand");
+  const week = Math.max(1, Math.min(50, Number(weekInput?.value || data.season?.currentWeek || 1)));
+  const brandName = brandInput?.value || activeBrand || data.setup?.brands?.[0]?.name || "";
+  return { week, brandName, key: `${week}|${brandName}` };
+}
+
+function getCachedWeeklyRecord(week, brandName) {
+  if (typeof weeklyDraftCache === "undefined") window.weeklyDraftCache = {};
+  const key = `${week}|${brandName}`;
+  if (!weeklyDraftCache[key]) {
+    const saved = getWeeklyRecord(week, brandName);
+    weeklyDraftCache[key] = {
+      week,
+      brand: brandName,
+      showType: isPleWeek(week) ? "PLE" : "Weekly Show",
+      notes: saved?.notes || "",
+      matches: JSON.parse(JSON.stringify(saved?.matches || [])),
+      promos: JSON.parse(JSON.stringify(saved?.promos || [])),
+      unused: JSON.parse(JSON.stringify(saved?.unused || []))
+    };
+  }
+  return weeklyDraftCache[key];
+}
+
+function upsertCachedMatch(cache, matchRecord) {
+  cache.matches = cache.matches || [];
+  const idx = cache.matches.findIndex(m => m.slotId === matchRecord.slotId);
+  if (idx >= 0) cache.matches[idx] = matchRecord;
+  else cache.matches.push(matchRecord);
+}
+
+function upsertCachedPromo(cache, promoRecord) {
+  cache.promos = cache.promos || [];
+  const idx = cache.promos.findIndex(p => p.slotId === promoRecord.slotId);
+  if (idx >= 0) cache.promos[idx] = promoRecord;
+  else cache.promos.push(promoRecord);
+}
+
+function readVisibleMatchSegment(segment, brandName) {
+  const selectedRule = getMatchRule(document.getElementById(`${segment.id}-rule`)?.value || ruleKey(matchRuleOptions[0]));
+  const participants = [];
+
+  for (let i = 1; i <= selectedRule.wrestlers; i++) {
+    participants.push(document.getElementById(`${segment.id}-w${i}`)?.value || "");
+  }
+
+  const before = {};
+  const after = {};
+
+  participants.filter(Boolean).forEach((name, idx) => {
+    const n = idx + 1;
+    const w = getSuperstarByBrandName(brandName, name);
+    const staminaRaw = document.getElementById(`${segment.id}-w${n}-stamina-after`)?.value;
+    const popRaw = document.getElementById(`${segment.id}-w${n}-pop-after`)?.value;
+
+    before[name] = {
+      stamina: w ? Number(w.stamina ?? w.startingStamina ?? 70) : "",
+      pop: w ? Number(w.pop ?? 0) : ""
+    };
+
+    after[name] = {
+      stamina: staminaRaw === "" || typeof staminaRaw === "undefined" ? "" : Number(staminaRaw),
+      pop: popRaw === "" || typeof popRaw === "undefined" ? "" : Number(popRaw)
+    };
+  });
+
+  return {
+    slotId: segment.id,
+    label: segment.label,
+    ruleKey: ruleKey(selectedRule),
+    rule: selectedRule,
+    participants,
+    winner: document.getElementById(`${segment.id}-winner`)?.value || "",
+    titleMatch: document.getElementById(`${segment.id}-titleMatch`)?.value || "No",
+    rating: document.getElementById(`${segment.id}-rating`)?.value || "",
+    before,
+    after
+  };
+}
+
+function readVisiblePromoSegment(segment) {
+  const promoType = document.getElementById(`${segment.id}-type`)?.value || "Self Promo";
+  const promo = getPromoOption(promoType);
+
+  return {
+    slotId: segment.id,
+    label: segment.label,
+    wrestler: document.getElementById(`${segment.id}-wrestler`)?.value || "",
+    wrestler2: document.getElementById(`${segment.id}-wrestler2`)?.value || "",
+    promoType,
+    promo,
+    result: document.getElementById(`${segment.id}-result`)?.value || "",
+    staminaAfter: document.getElementById(`${segment.id}-stamina-after`)?.value ?? "",
+    popAfter: document.getElementById(`${segment.id}-pop-after`)?.value ?? "",
+    stamina2After: document.getElementById(`${segment.id}-stamina2-after`)?.value ?? "",
+    pop2After: document.getElementById(`${segment.id}-pop2-after`)?.value ?? ""
+  };
+}
+
+function cacheVisibleWeeklySegment() {
+  const { week, brandName } = currentWeeklyContext();
+  if (!brandName) return null;
+
+  const segment = weeklySegments.find(s => s.id === activeWeeklySegment) || weeklySegments[0];
+  if (!segment) return null;
+
+  const cache = getCachedWeeklyRecord(week, brandName);
+  cache.notes = document.getElementById("weeklyNotes")?.value || cache.notes || "";
+
+  if (segment.type === "match") {
+    upsertCachedMatch(cache, readVisibleMatchSegment(segment, brandName));
+  } else {
+    upsertCachedPromo(cache, readVisiblePromoSegment(segment));
+  }
+
+  return cache;
+}
+
+function refreshWeeklyCommandCenterFromCache() {
+  const { week, brandName } = currentWeeklyContext();
+  const cache = getCachedWeeklyRecord(week, brandName);
+  const roster = data.roster.filter(w => w.brand === brandName).sort((a,b) => a.name.localeCompare(b.name));
+
+  renderWeeklySegmentList(cache, brandName);
+  renderDramaCurveAssistant(brandName, cache);
+  updateUnusedRosterList();
+
+  const builder = document.getElementById("weeklyCardBuilder");
+  if (builder) {
+    const selectedSegment = weeklySegments.find(s => s.id === activeWeeklySegment) || weeklySegments[0];
+    builder.innerHTML = renderSelectedWeeklyDetail(selectedSegment, roster, cache, brandName);
+  }
+
+  return cache;
+}
+
 function renderWeeklyShows() {
   ensureWeeklyData();
   renderWeeklyBrandDropdown();
@@ -3416,8 +3542,7 @@ function renderWeeklyShows() {
   const typeBox = document.getElementById("weeklyShowType");
   if (typeBox) typeBox.textContent = `Week ${week}: ${showType}`;
 
-  const savedRecord = ensureWeeklyDraftCache(week, brandName);
-  const record = collectCurrentWeeklyCardState(savedRecord || {});
+  const record = getCachedWeeklyRecord(week, brandName);
   const notes = document.getElementById("weeklyNotes");
   if (notes) notes.value = record?.notes || "";
 
@@ -3659,7 +3784,7 @@ function computeWeeklyUnusedFromCache(record) {
 function saveWeeklyShow() {
   ensureWeeklyData();
 
-  const cache = captureVisibleSegmentToCache();
+  const cache = cacheVisibleWeeklySegment();
   if (!cache) return alert("Select a brand first.");
 
   const record = {
@@ -3678,8 +3803,7 @@ function saveWeeklyShow() {
   transactionLog("Weekly Show", `${record.brand} Week ${record.week} card saved.`);
   saveData();
 
-  const key = weeklyCacheKey(record.week, record.brand);
-  weeklyDraftCache[key] = record;
+  weeklyDraftCache[weeklyCacheKey(record.week, record.brand)] = record;
 
   renderAll();
   alert(`${record.brand} Week ${record.week} card saved.`);
@@ -4037,7 +4161,7 @@ function renderDramaCurveAssistant(brandName) {
 
 
 function setWeeklyBrand(brandName) {
-  captureVisibleSegmentToCache();
+  cacheVisibleWeeklySegment();
   if (!brandName) return;
   activeBrand = brandName;
   const el = document.getElementById("weeklyBrand");
