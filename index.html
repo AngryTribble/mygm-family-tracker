@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2974,11 +2973,11 @@ function updateWeeklyMatchSegment(segmentId) {
 
   if (meta) {
     meta.innerHTML = `
-      <span>Wrestlers Needed: ${selectedRule.wrestlers}</span>
-      <span>Stamina Cost: ${escapeHtml(selectedRule.stamina)}</span>
-      <span>Quality Boost: ${escapeHtml(selectedRule.quality)}</span>
-      <span>Ring XP Gain: ${escapeHtml(selectedRule.xp)}</span>
-      <span class="${ruleCostLabel(selectedRule).cls}">Estimated Cost: ${ruleCostLabel(selectedRule).label}</span>
+      <span>${selectedRule.wrestlers} Wrestlers</span>
+      <span>S: ${escapeHtml(selectedRule.stamina)}</span>
+      <span>Q: ${escapeHtml(selectedRule.quality)}</span>
+      <span>X: ${escapeHtml(selectedRule.xp)}</span>
+      <span class="${ruleCostLabel(selectedRule).cls}">${ruleCostLabel(selectedRule).label}</span>
     `;
   }
 
@@ -2998,14 +2997,29 @@ function updateWeeklyMatchSegment(segmentId) {
     `;
   }).join("");
 
-  updateWinnerDropdownForSegment(segmentId);
-  updateUnusedRosterList();
+  updateWeeklyCardLive();
 }
 
 function updateWeeklyCardLive() {
+  const brandName = document.getElementById("weeklyBrand")?.value || activeBrand || "";
+  const week = Number(document.getElementById("weeklyWeek")?.value || data.season?.currentWeek || 1);
+  const savedRecord = getWeeklyRecord(week, brandName) || {};
+  const liveRecord = collectCurrentWeeklyCardState(savedRecord);
+
   weeklySegments.forEach(segment => {
     if (segment.type === "match") updateWinnerDropdownForSegment(segment.id);
   });
+
+  const roster = data.roster.filter(w => w.brand === brandName).sort((a,b) => a.name.localeCompare(b.name));
+  const selectedSegment = weeklySegments.find(s => s.id === activeWeeklySegment) || weeklySegments[0];
+  const builder = document.getElementById("weeklyCardBuilder");
+
+  if (builder) {
+    builder.innerHTML = renderSelectedWeeklyDetail(selectedSegment, roster, liveRecord, brandName);
+  }
+
+  renderWeeklySegmentList(liveRecord, brandName);
+  renderDramaCurveAssistant(brandName, liveRecord);
   updateUnusedRosterList();
 }
 
@@ -3107,7 +3121,7 @@ function renderParticipantPanel(wrestlerName, brandName, label) {
   return `
     <div class="participant-panel">
       <div class="small">${escapeHtml(label)}</div>
-      <div class="render-box">${renderWrestlerImage(w)}</div>
+      <div class="render-box">${imageBlock(w)}</div>
       <strong>${escapeHtml(w.name)}</strong><br>
       <span class="pill">${escapeHtml(w.role || "")}</span>
       <span class="pill">${escapeHtml(w.classType || "")}</span><br>
@@ -3206,9 +3220,9 @@ function renderSelectedWeeklyDetail(segment, roster, record, brandName) {
                   <label>Wrestler ${n}</label>
                   <select id="${segment.id}-w${n}" onchange="updateWeeklyCardLive()">${rosterOptionsForWeekly(roster, selected)}</select>
                   <label class="small">Stamina After</label>
-                  <input id="${segment.id}-w${n}-stamina-after" type="number" min="0" max="100" value="${saved.after?.[selected]?.stamina ?? ""}" placeholder="${wrestler ? wrestler.stamina ?? wrestler.startingStamina ?? 70 : ""}">
+                  <input id="${segment.id}-w${n}-stamina-after" type="number" min="0" max="100" value="${saved.after?.[selected]?.stamina === "" ? "" : (saved.after?.[selected]?.stamina ?? "")}" placeholder="${wrestler ? wrestler.stamina ?? wrestler.startingStamina ?? 70 : ""}">
                   <label class="small">Popularity After</label>
-                  <input id="${segment.id}-w${n}-pop-after" type="number" min="0" max="100" value="${saved.after?.[selected]?.pop ?? ""}" placeholder="${wrestler ? wrestler.pop ?? 0 : ""}">
+                  <input id="${segment.id}-w${n}-pop-after" type="number" min="0" max="100" value="${saved.after?.[selected]?.pop === "" ? "" : (saved.after?.[selected]?.pop ?? "")}" placeholder="${wrestler ? wrestler.pop ?? 0 : ""}">
                 </div>
               `;
             }).join("")}
@@ -3893,9 +3907,9 @@ function renderMatchSegment(segment, roster, record) {
         <label>Wrestler ${n}</label>
         <select id="${segment.id}-w${n}" onchange="updateWeeklyCardLive()">${rosterOptionsForWeekly(roster, selected)}</select>
         <label class="small">Stamina After</label>
-        <input id="${segment.id}-w${n}-stamina-after" type="number" min="0" max="100" value="${saved.after?.[selected]?.stamina ?? ""}" placeholder="${wrestler ? wrestler.stamina ?? wrestler.startingStamina ?? 70 : ""}">
+        <input id="${segment.id}-w${n}-stamina-after" type="number" min="0" max="100" value="${saved.after?.[selected]?.stamina === "" ? "" : (saved.after?.[selected]?.stamina ?? "")}" placeholder="${wrestler ? wrestler.stamina ?? wrestler.startingStamina ?? 70 : ""}">
         <label class="small">Popularity After</label>
-        <input id="${segment.id}-w${n}-pop-after" type="number" min="0" max="100" value="${saved.after?.[selected]?.pop ?? ""}" placeholder="${wrestler ? wrestler.pop ?? 0 : ""}">
+        <input id="${segment.id}-w${n}-pop-after" type="number" min="0" max="100" value="${saved.after?.[selected]?.pop === "" ? "" : (saved.after?.[selected]?.pop ?? "")}" placeholder="${wrestler ? wrestler.pop ?? 0 : ""}">
       </div>
     `;
   }).join("");
