@@ -2849,6 +2849,18 @@ function suggestWeeklyMatch(brandName) {
 
 
 function collectCurrentWeeklyCardState(fallbackRecord = {}) {
+  const existingBuilder = document.getElementById("weeklyCardBuilder");
+  if (!existingBuilder || !existingBuilder.innerHTML.trim()) return fallbackRecord || {};
+  const brandName = document.getElementById("weeklyBrand")?.value || activeBrand || "";
+  const week = Number(document.getElementById("weeklyWeek")?.value || data.season?.currentWeek || 1);
+  const visible = captureVisibleWeeklySegment(brandName, week);
+  return mergeVisibleSegmentIntoRecord({
+    ...(fallbackRecord || {}),
+    matches: [...(fallbackRecord?.matches || [])],
+    promos: [...(fallbackRecord?.promos || [])],
+    notes: document.getElementById("weeklyNotes")?.value ?? fallbackRecord?.notes ?? ""
+  }, visible);
+}) {
   // Captures unsaved selections before the card re-renders.
   // This keeps match rules, wrestlers, winners, ratings, stamina and pop entries from disappearing.
   const existingBuilder = document.getElementById("weeklyCardBuilder");
@@ -3478,61 +3490,186 @@ function renderWeeklyShows() {
   renderStaminaObservationSummary();
 }
 
+
+function captureVisibleWeeklySegment(brandName, week) {
+  const segment = weeklySegments.find(s => s.id === activeWeeklySegment) || weeklySegments[0];
+  if (!segment) return null;
+
+  if (segment.type === "match") {
+    const selectedRule = getMatchRule(document.getElementById(`${segment.id}-rule`)?.value || ruleKey(matchRuleOptions[0]));
+    const participants = [];
+    for (let i = 1; i <= selectedRule.wrestlers; i++) {
+      participants.push(document.getElementById(`${segment.id}-w${i}`)?.value || "");
+    }
+
+    const after = {};
+    const before = {};
+    participants.filter(Boolean).forEach((name, idx) => {
+      const n = idx + 1;
+      const w = getSuperstarByBrandName(brandName, name);
+      const beforeStamina = w ? Number(w.stamina ?? w.startingStamina ?? 70) : "";
+      const beforePop = w ? Number(w.pop ?? 0) : "";
+      const staminaRaw = document.getElementById(`${segment.id}-w${n}-stamina-after`)?.value;
+      const popRaw = document.getElementById(`${segment.id}-w${n}-pop-after`)?.value;
+      before[name] = { stamina: beforeStamina, pop: beforePop };
+      after[name] = {
+        stamina: staminaRaw === "" || typeof staminaRaw === "undefined" ? "" : Number(staminaRaw),
+        pop: popRaw === "" || typeof popRaw === "undefined" ? "" : Number(popRaw)
+      };
+    });
+
+    return {
+      kind: "match",
+      slotId: segment.id,
+      label: segment.label,
+      ruleKey: ruleKey(selectedRule),
+      rule: selectedRule,
+      participants,
+      winner: document.getElementById(`${segment.id}-winner`)?.value || "",
+      titleMatch: document.getElementById(`${segment.id}-titleMatch`)?.value || "No",
+      rating: document.getElementById(`${segment.id}-rating`)?.value || "",
+      before,
+      after
+    };
+  }
+
+  const promoType = document.getElementById(`${segment.id}-type`)?.value || "Self Promo";
+  return {
+    kind: "promo",
+    slotId: segment.id,
+    label: segment.label,
+    wrestler: document.getElementById(`${segment.id}-wrestler`)?.value || "",
+    wrestler2: document.getElementById(`${segment.id}-wrestler2`)?.value || "",
+    promoType,
+    promo: getPromoOption(promoType),
+    result: document.getElementById(`${segment.id}-result`)?.value || "",
+    staminaAfter: document.getElementById(`${segment.id}-stamina-after`)?.value ?? "",
+    popAfter: document.getElementById(`${segment.id}-pop-after`)?.value ?? "",
+    stamina2After: document.getElementById(`${segment.id}-stamina2-after`)?.value ?? "",
+    pop2After: document.getElementById(`${segment.id}-pop2-after`)?.value ?? ""
+  };
+}
+
+function mergeVisibleSegmentIntoRecord(record, visible) {
+  if (!visible) return record;
+  const next = {
+    ...record,
+    matches: [...(record.matches || [])],
+    promos: [...(record.promos || [])]
+  };
+
+  if (visible.kind === "match") {
+    const clean = { ...visible };
+    delete clean.kind;
+    const idx = next.matches.findIndex(m => m.slotId === clean.slotId);
+    if (idx >= 0) next.matches[idx] = clean;
+    else next.matches.push(clean);
+  } else {
+    const clean = { ...visible };
+    delete clean.kind;
+    const idx = next.promos.findIndex(p => p.slotId === clean.slotId);
+    if (idx >= 0) next.promos[idx] = clean;
+    else next.promos.push(clean);
+  }
+  return next;
+}
+
+function applyWeeklyRecordChangesToRoster(record, brandName, week) {
+  ensureWeeklyData();
+
+  (record.matches || []).forEach(match => {
+    (match.participants || []).filter(Boolean).forEach(name => {
+      const w = getSuperstarByBrandName(brandName, name);
+      if (!w) return;
+
+      const beforeStamina = Number(w.stamina ?? w.startingStamina ?? 70);
+      const beforePop = Number(w.pop ?? 0);
+      const enteredAfter = match.after?.[name] || {};
+      const afterStamina = enteredAfter.stamina === "" || typeof enteredAfter.stamina === "undefined" ? beforeStamina : Number(enteredAfter.stamina);
+      const afterPop = enteredAfter.pop === "" || typeof enteredAfter.pop === "undefined" ? beforePop : Number(enteredAfter.pop);
+
+      w.stamina = afterStamina;
+      w.pop = afterPop;
+    });
+  });
+
+  (record.promos || []).forEach(promoRecord => {
+    const promo = getPromoOption(promoRecord.promoType || "Self Promo");
+    const names = [promoRecord.wrestler, promoRecord.wrestler2].filter(Boolean).slice(0, promo.wrestlers);
+    names.forEach((name, idx) => {
+      const w = getSuperstarByBrandName(brandName, name);
+      if (!w) return;
+      const beforeStamina = Number(w.stamina ?? w.startingStamina ?? 70);
+      const beforePop = Number(w.pop ?? 0);
+      const staminaRaw = idx === 0 ? promoRecord.staminaAfter : promoRecord.stamina2After;
+      const popRaw = idx === 0 ? promoRecord.popAfter : promoRecord.pop2After;
+      w.stamina = staminaRaw === "" || typeof staminaRaw === "undefined" ? Math.min(100, beforeStamina + promo.staminaGain) : Number(staminaRaw);
+      w.pop = popRaw === "" || typeof popRaw === "undefined" ? beforePop : Number(popRaw);
+    });
+  });
+}
+
+function computeUnusedForWeeklyRecord(record, brandName, week) {
+  const booked = new Set();
+  (record.matches || []).forEach(m => (m.participants || []).filter(Boolean).forEach(name => booked.add(name)));
+  (record.promos || []).forEach(p => {
+    if (p.wrestler) booked.add(p.wrestler);
+    if (p.wrestler2) booked.add(p.wrestler2);
+  });
+
+  return data.roster
+    .filter(w => w.brand === brandName && !booked.has(w.name))
+    .map(w => {
+      const beforeStamina = Number(w.stamina ?? w.startingStamina ?? 70);
+      const beforePop = Number(w.pop ?? 0);
+      const afterStamina = safeNumberFromInput(`unused-stamina-${slugify(w.name)}`, beforeStamina);
+      const afterPop = safeNumberFromInput(`unused-pop-${slugify(w.name)}`, beforePop);
+      w.stamina = afterStamina;
+      w.pop = afterPop;
+      return { name: w.name, beforeStamina, afterStamina, beforePop, afterPop };
+    });
+}
+
 function saveWeeklyShow() {
   ensureWeeklyData();
 
   let week = Number(document.getElementById("weeklyWeek")?.value || 1);
   week = Math.max(1, Math.min(50, week));
+
   const brandName = document.getElementById("weeklyBrand")?.value || activeBrand || "";
   if (!brandName) return alert("Select a brand first.");
 
-  const roster = data.roster.filter(w => w.brand === brandName);
-  const activities = [];
-
-  roster.forEach(w => {
-    const key = slugify(w.name);
-    const activity = document.getElementById(`weekly-activity-${key}`)?.value || "Rest";
-    const beforeStamina = Number(document.getElementById(`weekly-before-${key}`)?.value || w.stamina || 70);
-    const afterRaw = document.getElementById(`weekly-after-${key}`)?.value;
-    const afterStamina = afterRaw === "" ? beforeStamina : Number(afterRaw);
-
-    activities.push({
-      name: w.name,
-      activity,
-      beforeStamina,
-      afterStamina,
-      delta: afterStamina - beforeStamina
-    });
-
-    w.stamina = afterStamina;
-
-    data.season.staminaObservations.push({
-      id: String(Date.now()) + "-" + Math.random().toString(16).slice(2),
-      week,
-      brand: brandName,
-      superstar: w.name,
-      activity,
-      beforeStamina,
-      afterStamina,
-      delta: afterStamina - beforeStamina,
-      showType: isPleWeek(week) ? "PLE" : "Weekly Show"
-    });
-  });
-
-  upsertWeeklyRecord({
+  const existing = getWeeklyRecord(week, brandName) || {
     week,
     brand: brandName,
     showType: isPleWeek(week) ? "PLE" : "Weekly Show",
-    notes: document.getElementById("weeklyNotes")?.value || "",
-    activities,
+    matches: [],
+    promos: [],
+    unused: []
+  };
+
+  const visible = captureVisibleWeeklySegment(brandName, week);
+  let mergedRecord = mergeVisibleSegmentIntoRecord(existing, visible);
+
+  mergedRecord = {
+    ...mergedRecord,
+    week,
+    brand: brandName,
+    showType: isPleWeek(week) ? "PLE" : "Weekly Show",
+    notes: document.getElementById("weeklyNotes")?.value || existing.notes || "",
     savedAt: new Date().toLocaleString()
-  });
+  };
+
+  applyWeeklyRecordChangesToRoster(mergedRecord, brandName, week);
+  mergedRecord.unused = computeUnusedForWeeklyRecord(mergedRecord, brandName, week);
+
+  upsertWeeklyRecord(mergedRecord);
 
   data.season.currentWeek = week;
-  transactionLog("Weekly Show", `${brandName} Week ${week} saved.`);
+  transactionLog("Weekly Show", `${brandName} Week ${week} card saved.`);
   saveData();
   renderAll();
-  alert(`${brandName} Week ${week} saved.`);
+  alert(`${brandName} Week ${week} card saved.`);
 }
 
 function renderStaminaObservationSummary() {
