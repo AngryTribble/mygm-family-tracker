@@ -163,6 +163,11 @@
     .cost-mid { color:#fde68a; font-weight:800; }
     .cost-high { color:#fecaca; font-weight:800; }
 
+
+    .unused-edit-grid { display:grid; grid-template-columns:1.4fr .45fr .45fr; gap:10px; align-items:end; margin-top:10px; }
+    .unused-edit-row { display:contents; }
+    @media (max-width:800px) { .unused-edit-grid { grid-template-columns:1fr; } .unused-edit-row { display:block; border-bottom:1px solid var(--line); padding:10px 0; } }
+
 </style>
 </head>
 <body>
@@ -3437,7 +3442,7 @@ function safeNumberFromInput(id, fallback = 0) {
 function rosterOptionsForWeekly(roster, selectedName = "") {
   return `<option value="">Select Superstar</option>` + roster.map(w => `
     <option value="${escapeHtml(w.name)}" ${w.name === selectedName ? "selected" : ""}>
-      ${escapeHtml(w.name)} | ${escapeHtml(w.role || "")} ${escapeHtml(w.classType || "")} | STA ${w.stamina ?? w.startingStamina ?? 70}
+      ${escapeHtml(w.name)}
     </option>
   `).join("");
 }
@@ -3476,13 +3481,25 @@ function updateUnusedRosterList() {
   const unused = roster.filter(w => !booked.has(w.name));
 
   box.innerHTML = unused.length ? `
-    <div class="unused-roster-grid">
+    <div class="unused-edit-grid">
+      <div><strong>Superstar</strong></div>
+      <div><strong>Stamina After</strong></div>
+      <div><strong>Popularity After</strong></div>
+
       ${unused.map(w => `
-        <div class="unused-chip">
-          <strong>${escapeHtml(w.name)}</strong>
-          ${staminaBadgeHtml(w.stamina ?? w.startingStamina ?? 70)}
-          <span class="pill">${escapeHtml(w.role || "")}</span>
-          <span class="pill">${escapeHtml(w.classType || "")}</span>
+        <div class="unused-edit-row">
+          <div class="unused-chip">
+            <strong>${escapeHtml(w.name)}</strong>
+            ${staminaBadgeHtml(w.stamina ?? w.startingStamina ?? 70)}
+            <span class="pill">${escapeHtml(w.role || "")}</span>
+            <span class="pill">${escapeHtml(w.classType || "")}</span>
+          </div>
+          <div>
+            <input id="unused-stamina-${slugify(w.name)}" type="number" min="0" max="100" value="${w.stamina ?? w.startingStamina ?? 70}">
+          </div>
+          <div>
+            <input id="unused-pop-${slugify(w.name)}" type="number" min="0" max="100" value="${w.pop ?? 0}">
+          </div>
         </div>
       `).join("")}
     </div>
@@ -3784,9 +3801,41 @@ function saveWeeklyShow() {
   matches.forEach(m => (m.participants || []).forEach(name => booked.add(name)));
   promos.forEach(p => { if (p.wrestler) booked.add(p.wrestler); });
 
-  const unused = data.roster
-    .filter(w => w.brand === brandName && !booked.has(w.name))
-    .map(w => w.name);
+  const unusedWrestlers = data.roster
+    .filter(w => w.brand === brandName && !booked.has(w.name));
+
+  const unused = unusedWrestlers.map(w => {
+    const beforeStamina = Number(w.stamina ?? w.startingStamina ?? 70);
+    const beforePop = Number(w.pop ?? 0);
+    const afterStamina = safeNumberFromInput(`unused-stamina-${slugify(w.name)}`, beforeStamina);
+    const afterPop = safeNumberFromInput(`unused-pop-${slugify(w.name)}`, beforePop);
+
+    w.stamina = afterStamina;
+    w.pop = afterPop;
+
+    data.season.staminaObservations.push({
+      id: String(Date.now()) + "-" + Math.random().toString(16).slice(2),
+      week,
+      brand: brandName,
+      superstar: w.name,
+      activity: "Unused / Rest",
+      beforeStamina,
+      afterStamina,
+      delta: afterStamina - beforeStamina,
+      beforePop,
+      afterPop,
+      popDelta: afterPop - beforePop,
+      showType: isPleWeek(week) ? "PLE" : "Weekly Show"
+    });
+
+    return {
+      name: w.name,
+      beforeStamina,
+      afterStamina,
+      beforePop,
+      afterPop
+    };
+  });
 
   upsertWeeklyRecord({
     week,
