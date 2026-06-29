@@ -239,6 +239,9 @@
     @media (max-width:1250px) { .weekly-pro-layout { grid-template-columns:280px 1fr; } .assistant-box { grid-column:1 / -1; position:static; } }
     @media (max-width:900px) { .weekly-pro-layout,.workspace-grid { grid-template-columns:1fr; } }
 
+
+    .weekly-save-status { margin-top:10px; padding:8px 10px; border-radius:10px; background:#0f172a; border:1px solid var(--line); color:var(--muted); font-size:.85rem; }
+
 </style>
 </head>
 <body>
@@ -453,6 +456,7 @@
       <select id="weeklyBrand" onchange="setWeeklyBrand(this.value)"></select>
 
       <button class="save" style="width:100%;margin-top:12px;" onclick="saveWeeklyShow()">Save Weekly Card</button>
+      <div id="weeklySaveStatus" class="weekly-save-status">Current card not loaded.</div>
 
       <div class="weekly-card" style="margin-top:14px;">
         <h3>Show Flow</h3>
@@ -2350,7 +2354,8 @@ function restartMyGM() {
     transactions: [],
     seasonArchive: [],
     titleHistory: [],
-    season: { currentWeek: 1, weeks: [], staminaObservations: [] }
+    season: { currentWeek: 1, weeks: [], staminaObservations: [] },
+    weeklyShows: {}
   };
 
   populateSetupDropdowns();
@@ -2963,105 +2968,23 @@ function updateWinnerDropdownForSegment(segmentId) {
 }
 
 function updateWeeklyMatchSegment(segmentId) {
-  const ruleSelect = document.getElementById(`${segmentId}-rule`);
-  const container = document.getElementById(`${segmentId}-participants`);
-  const meta = document.getElementById(`${segmentId}-rule-meta`);
-  if (!ruleSelect || !container) return;
-
-  const selectedRule = getMatchRule(ruleSelect.value || ruleKey(matchRuleOptions[0]));
-  const roster = getCurrentWeeklyRoster();
-  const oldSelections = getMatchParticipantsFromSegment(segmentId);
-
-  if (meta) {
-    meta.innerHTML = `
-      <span>${selectedRule.wrestlers} Wrestlers</span>
-      <span>S: ${escapeHtml(selectedRule.stamina)}</span>
-      <span>Q: ${escapeHtml(selectedRule.quality)}</span>
-      <span>X: ${escapeHtml(selectedRule.xp)}</span>
-      <span class="${ruleCostLabel(selectedRule).cls}">${ruleCostLabel(selectedRule).label}</span>
-    `;
-  }
-
-  container.innerHTML = Array.from({ length: selectedRule.wrestlers }, (_, idx) => {
-    const n = idx + 1;
-    const selected = oldSelections[idx] || "";
-    const wrestler = roster.find(w => w.name === selected);
-    return `
-      <div>
-        <label>Wrestler ${n}</label>
-        <select id="${segmentId}-w${n}" onchange="updateWeeklyCardLive()">${rosterOptionsForWeekly(roster, selected)}</select>
-        <label class="small">Stamina After</label>
-        <input id="${segmentId}-w${n}-stamina-after" type="number" min="0" max="100" value="" placeholder="${wrestler ? wrestler.stamina ?? wrestler.startingStamina ?? 70 : ""}">
-        <label class="small">Popularity After</label>
-        <input id="${segmentId}-w${n}-pop-after" type="number" min="0" max="100" value="" placeholder="${wrestler ? wrestler.pop ?? 0 : ""}">
-      </div>
-    `;
-  }).join("");
-
-  updateWeeklyCardLive();
+  const ruleKeyValue = document.getElementById(`${segmentId}-rule`)?.value || ruleKey(matchRuleOptions[0]);
+  updateActiveMatchRule(segmentId, ruleKeyValue);
+  renderWeeklyShows();
 }
 
 
 function updatePromoSegment(segmentId) {
-  const typeSelect = document.getElementById(`${segmentId}-type`);
-  const roster = getCurrentWeeklyRoster();
-  if (!typeSelect) return;
-
-  const promo = getPromoOption(typeSelect.value || "Self Promo");
-  const container = document.getElementById(`${segmentId}-promo-wrestlers`);
-  const meta = document.getElementById(`${segmentId}-promo-meta`);
-  if (!container) {
-    updateWeeklyCardLive();
-    return;
-  }
-
-  const old1 = document.getElementById(`${segmentId}-wrestler`)?.value || "";
-  const old2 = document.getElementById(`${segmentId}-wrestler2`)?.value || "";
-
-  if (meta) {
-    meta.innerHTML = `
-      <span>Wrestlers Needed: ${promo.wrestlers}</span>
-      <span>Stamina Gain: +${promo.staminaGain}</span>
-    `;
-  }
-
-  container.innerHTML = `
-    <div>
-      <label>Superstar 1</label>
-      <select id="${segmentId}-wrestler" onchange="updateWeeklyCardLive()">${rosterOptionsForWeekly(roster, old1)}</select>
-    </div>
-    ${promo.wrestlers > 1 ? `
-      <div>
-        <label>Superstar 2</label>
-        <select id="${segmentId}-wrestler2" onchange="updateWeeklyCardLive()">${rosterOptionsForWeekly(roster, old2)}</select>
-      </div>
-    ` : ""}
-  `;
-
-  updateWeeklyCardLive();
+  const promoType = document.getElementById(`${segmentId}-type`)?.value || "Self Promo";
+  updateActivePromoType(segmentId, promoType);
+  renderWeeklyShows();
 }
 
 function updateWeeklyCardLive() {
-  const brandName = document.getElementById("weeklyBrand")?.value || activeBrand || "";
-  const week = Number(document.getElementById("weeklyWeek")?.value || data.season?.currentWeek || 1);
-  const savedRecord = getWeeklyRecord(week, brandName) || {};
-  const liveRecord = collectCurrentWeeklyCardState(savedRecord);
-
-  weeklySegments.forEach(segment => {
-    if (segment.type === "match") updateWinnerDropdownForSegment(segment.id);
-  });
-
-  const roster = data.roster.filter(w => w.brand === brandName).sort((a,b) => a.name.localeCompare(b.name));
-  const selectedSegment = weeklySegments.find(s => s.id === activeWeeklySegment) || weeklySegments[0];
-  const builder = document.getElementById("weeklyCardBuilder");
-
-  if (builder) {
-    builder.innerHTML = renderSelectedWeeklyDetail(selectedSegment, roster, liveRecord, brandName);
-  }
-
-  renderWeeklySegmentList(liveRecord, brandName);
-  renderDramaCurveAssistant(brandName, liveRecord);
+  renderWeeklySegmentList(activeWeeklyCard, activeWeeklyCard?.brand || activeBrand);
+  renderDramaCurveAssistant(activeWeeklyCard?.brand || activeBrand, activeWeeklyCard);
   updateUnusedRosterList();
+  renderWeeklySaveStatus();
 }
 
 
@@ -3085,10 +3008,11 @@ function getSavedSegment(record, segment) {
 }
 
 function weeklySegmentSummary(segment, record) {
-  const saved = getSavedSegment(record, segment);
+  const saved = (record?.segments || []).find(s => s.id === segment.id) || segment;
 
-  if (segment.type === "promo") {
-    return saved.wrestler ? `${saved.promoType || "Promo"} • ${[saved.wrestler, saved.wrestler2].filter(Boolean).join(" & ")}` : "Unbooked promo";
+  if (saved.type === "promo") {
+    const names = (saved.wrestlers || []).filter(Boolean);
+    return names.length ? `${saved.promoType || "Promo"} • ${names.join(" & ")}` : "Unbooked promo";
   }
 
   const rule = getMatchRule(saved.ruleKey || ruleKey(matchRuleOptions[0]));
@@ -3097,13 +3021,15 @@ function weeklySegmentSummary(segment, record) {
 }
 
 function segmentProjectedScore(segment, record, brandName) {
-  if (segment.type === "promo") return null;
-  const saved = getSavedSegment(record, segment);
+  const saved = (record?.segments || []).find(s => s.id === segment.id) || segment;
+  if (!saved || saved.type === "promo") return null;
+
   const rule = getMatchRule(saved.ruleKey || ruleKey(matchRuleOptions[0]));
   const participants = (saved.participants || [])
     .map(name => data.roster.find(w => w.brand === brandName && w.name === name))
     .filter(Boolean);
-  return participants.length >= 2 ? estimateMatchFitScore(participants, rule, segment.id) : null;
+
+  return participants.length >= 2 ? estimateMatchFitScore(participants, rule, saved.id) : null;
 }
 
 function renderWeeklyBrandTabs() {
@@ -3177,13 +3103,13 @@ function selectedParticipantsFromSaved(saved, count) {
 }
 
 function renderSelectedWeeklyDetail(segment, roster, record, brandName) {
-  if (!segment) segment = weeklySegments[0];
+  if (!segment) segment = activeWeeklyCard?.segments?.[0];
+  if (!segment) return `<p class="small">No segment selected.</p>`;
 
   if (segment.type === "promo") {
-    const saved = getSavedSegment(record, segment);
-    const wrestler = saved.wrestler || "";
-    const wrestler2 = saved.wrestler2 || "";
-    const promo = getPromoOption(saved.promoType || "Self Promo");
+    const promo = getPromoOption(segment.promoType || "Self Promo");
+    const wrestler = segment.wrestlers?.[0] || "";
+    const wrestler2 = segment.wrestlers?.[1] || "";
     const wObj = roster.find(w => w.name === wrestler);
     const w2Obj = roster.find(w => w.name === wrestler2);
 
@@ -3194,29 +3120,29 @@ function renderSelectedWeeklyDetail(segment, roster, record, brandName) {
 
           <label>Promo Type</label>
           <select id="${segment.id}-type" onchange="updatePromoSegment('${segment.id}')">
-            ${renderPromoOptions(saved.promoType || "Self Promo")}
+            ${renderPromoOptions(segment.promoType || "Self Promo")}
           </select>
 
-          <div id="${segment.id}-promo-meta" class="rule-meta">
+          <div class="rule-meta">
             <span>Wrestlers Needed: ${promo.wrestlers}</span>
             <span>Stamina Gain: +${promo.staminaGain}</span>
           </div>
 
-          <div id="${segment.id}-promo-wrestlers" class="match-wrestler-grid">
+          <div class="match-wrestler-grid">
             <div>
               <label>Superstar 1</label>
-              <select id="${segment.id}-wrestler" onchange="updateWeeklyCardLive()">${rosterOptionsForWeekly(roster, wrestler)}</select>
+              <select id="${segment.id}-wrestler" onchange="updatePromoWrestler('${segment.id}', 0, this.value); renderWeeklyShows();">${rosterOptionsForWeekly(roster, wrestler)}</select>
             </div>
             ${promo.wrestlers > 1 ? `
               <div>
                 <label>Superstar 2</label>
-                <select id="${segment.id}-wrestler2" onchange="updateWeeklyCardLive()">${rosterOptionsForWeekly(roster, wrestler2)}</select>
+                <select id="${segment.id}-wrestler2" onchange="updatePromoWrestler('${segment.id}', 1, this.value); renderWeeklyShows();">${rosterOptionsForWeekly(roster, wrestler2)}</select>
               </div>
             ` : ""}
           </div>
 
           <label>Result / Notes</label>
-          <input id="${segment.id}-result" value="${escapeHtml(saved.result || "")}" placeholder="Example: rivalry advanced">
+          <input id="${segment.id}-result" value="${escapeHtml(segment.result || "")}" oninput="updateSegmentField('${segment.id}', 'result', this.value)" placeholder="Example: rivalry advanced">
         </div>
 
         <div>
@@ -3227,20 +3153,20 @@ function renderSelectedWeeklyDetail(segment, roster, record, brandName) {
           <div class="post-adjustments">
             <div>
               <label>${escapeHtml(wrestler || "Superstar 1")} Stamina After</label>
-              <input id="${segment.id}-stamina-after" type="number" min="0" max="100" value="${saved.staminaAfter ?? ""}" placeholder="${wObj ? Number(wObj.stamina ?? wObj.startingStamina ?? 70) + 6 : ""}">
+              <input type="number" min="0" max="100" value="${segment.after?.[wrestler]?.stamina ?? ""}" placeholder="${wObj ? Math.min(100, Number(wObj.stamina ?? wObj.startingStamina ?? 70) + 6) : ""}" oninput="updateSegmentAfter('${segment.id}', '${escapeHtml(wrestler)}', 'stamina', this.value)">
             </div>
             <div>
               <label>${escapeHtml(wrestler || "Superstar 1")} Popularity After</label>
-              <input id="${segment.id}-pop-after" type="number" min="0" max="100" value="${saved.popAfter ?? ""}" placeholder="${wObj ? wObj.pop ?? 0 : ""}">
+              <input type="number" min="0" max="100" value="${segment.after?.[wrestler]?.pop ?? ""}" placeholder="${wObj ? wObj.pop ?? 0 : ""}" oninput="updateSegmentAfter('${segment.id}', '${escapeHtml(wrestler)}', 'pop', this.value)">
             </div>
             ${promo.wrestlers > 1 ? `
               <div>
                 <label>${escapeHtml(wrestler2 || "Superstar 2")} Stamina After</label>
-                <input id="${segment.id}-stamina2-after" type="number" min="0" max="100" value="${saved.stamina2After ?? ""}" placeholder="${w2Obj ? Number(w2Obj.stamina ?? w2Obj.startingStamina ?? 70) + 6 : ""}">
+                <input type="number" min="0" max="100" value="${segment.after?.[wrestler2]?.stamina ?? ""}" placeholder="${w2Obj ? Math.min(100, Number(w2Obj.stamina ?? w2Obj.startingStamina ?? 70) + 6) : ""}" oninput="updateSegmentAfter('${segment.id}', '${escapeHtml(wrestler2)}', 'stamina', this.value)">
               </div>
               <div>
                 <label>${escapeHtml(wrestler2 || "Superstar 2")} Popularity After</label>
-                <input id="${segment.id}-pop2-after" type="number" min="0" max="100" value="${saved.pop2After ?? ""}" placeholder="${w2Obj ? w2Obj.pop ?? 0 : ""}">
+                <input type="number" min="0" max="100" value="${segment.after?.[wrestler2]?.pop ?? ""}" placeholder="${w2Obj ? w2Obj.pop ?? 0 : ""}" oninput="updateSegmentAfter('${segment.id}', '${escapeHtml(wrestler2)}', 'pop', this.value)">
               </div>
             ` : ""}
           </div>
@@ -3249,20 +3175,18 @@ function renderSelectedWeeklyDetail(segment, roster, record, brandName) {
     `;
   }
 
-  const saved = getSavedSegment(record, segment);
-  const selectedRuleKey = saved.ruleKey || ruleKey(matchRuleOptions[0]);
-  const selectedRule = getMatchRule(selectedRuleKey);
-  const participants = selectedParticipantsFromSaved(saved, selectedRule.wrestlers);
-  const cost = ruleCostLabel(selectedRule);
+  const rule = getMatchRule(segment.ruleKey || ruleKey(matchRuleOptions[0]));
+  const participants = Array(rule.wrestlers).fill("").map((_, idx) => segment.participants?.[idx] || "");
+  const cost = ruleCostLabel(rule);
   const participantObjects = participants.map(name => roster.find(w => w.name === name)).filter(Boolean);
-  const projectedScore = participantObjects.length >= 2 ? estimateMatchFitScore(participantObjects, selectedRule, segment.id) : null;
+  const projectedScore = participantObjects.length >= 2 ? estimateMatchFitScore(participantObjects, rule, segment.id) : null;
 
   return `
     <div>
       <div class="workspace-header">
         <div>
           <div class="workspace-title">${escapeHtml(segment.label)}</div>
-          <div class="workspace-subtitle">${escapeHtml(selectedRule.division)} • ${escapeHtml(selectedRule.rule)}</div>
+          <div class="workspace-subtitle">${escapeHtml(rule.division)} • ${escapeHtml(rule.rule)}</div>
         </div>
         <div>
           ${projectedScore ? `<span class="stars">${stars(projectedScore)}</span> <strong>${projectedScore}</strong>` : `<span class="small">Select wrestlers to project rating</span>`}
@@ -3273,29 +3197,29 @@ function renderSelectedWeeklyDetail(segment, roster, record, brandName) {
         <div class="workspace-form">
           <label>Match Rules</label>
           <select id="${segment.id}-rule" onchange="updateWeeklyMatchSegment('${segment.id}')">
-            ${renderRuleOptions(selectedRuleKey)}
+            ${renderRuleOptions(segment.ruleKey || ruleKey(matchRuleOptions[0]))}
           </select>
 
-          <div id="${segment.id}-rule-meta" class="rule-meta">
-            <span>${selectedRule.wrestlers} Wrestlers</span>
-            <span>S: ${escapeHtml(selectedRule.stamina)}</span>
-            <span>Q: ${escapeHtml(selectedRule.quality)}</span>
-            <span>X: ${escapeHtml(selectedRule.xp)}</span>
+          <div class="rule-meta">
+            <span>${rule.wrestlers} Wrestlers</span>
+            <span>S: ${escapeHtml(rule.stamina)}</span>
+            <span>Q: ${escapeHtml(rule.quality)}</span>
+            <span>X: ${escapeHtml(rule.xp)}</span>
             <span class="${cost.cls}">${cost.label}</span>
           </div>
 
-          <div id="${segment.id}-participants" class="match-wrestler-grid">
+          <div class="match-wrestler-grid">
             ${participants.map((selected, idx) => {
               const n = idx + 1;
               const wrestler = roster.find(w => w.name === selected);
               return `
                 <div>
                   <label>Wrestler ${n}</label>
-                  <select id="${segment.id}-w${n}" onchange="updateWeeklyCardLive()">${rosterOptionsForWeekly(roster, selected)}</select>
+                  <select onchange="updateMatchParticipant('${segment.id}', ${idx}, this.value); renderWeeklyShows();">${rosterOptionsForWeekly(roster, selected)}</select>
                   <label class="small">Stamina After</label>
-                  <input id="${segment.id}-w${n}-stamina-after" type="number" min="0" max="100" value="${saved.after?.[selected]?.stamina === "" ? "" : (saved.after?.[selected]?.stamina ?? "")}" placeholder="${wrestler ? wrestler.stamina ?? wrestler.startingStamina ?? 70 : ""}">
+                  <input type="number" min="0" max="100" value="${segment.after?.[selected]?.stamina ?? ""}" placeholder="${wrestler ? wrestler.stamina ?? wrestler.startingStamina ?? 70 : ""}" oninput="updateSegmentAfter('${segment.id}', '${escapeHtml(selected)}', 'stamina', this.value)">
                   <label class="small">Popularity After</label>
-                  <input id="${segment.id}-w${n}-pop-after" type="number" min="0" max="100" value="${saved.after?.[selected]?.pop === "" ? "" : (saved.after?.[selected]?.pop ?? "")}" placeholder="${wrestler ? wrestler.pop ?? 0 : ""}">
+                  <input type="number" min="0" max="100" value="${segment.after?.[selected]?.pop ?? ""}" placeholder="${wrestler ? wrestler.pop ?? 0 : ""}" oninput="updateSegmentAfter('${segment.id}', '${escapeHtml(selected)}', 'pop', this.value)">
                 </div>
               `;
             }).join("")}
@@ -3310,22 +3234,22 @@ function renderSelectedWeeklyDetail(segment, roster, record, brandName) {
           <div class="match-result-grid" style="margin-top:16px;">
             <div>
               <label>Winner</label>
-              <select id="${segment.id}-winner">
+              <select onchange="updateSegmentField('${segment.id}', 'winner', this.value)">
                 <option value="">No Result Yet</option>
-                ${participants.filter(Boolean).map(name => `<option value="${escapeHtml(name)}" ${saved.winner === name ? "selected" : ""}>${escapeHtml(name)}</option>`).join("")}
-                <option value="Draw" ${saved.winner === "Draw" ? "selected" : ""}>Draw / No Contest</option>
+                ${participants.filter(Boolean).map(name => `<option value="${escapeHtml(name)}" ${segment.winner === name ? "selected" : ""}>${escapeHtml(name)}</option>`).join("")}
+                <option value="Draw" ${segment.winner === "Draw" ? "selected" : ""}>Draw / No Contest</option>
               </select>
             </div>
             <div>
               <label>Title Match?</label>
-              <select id="${segment.id}-titleMatch">
-                <option ${saved.titleMatch !== "Yes" ? "selected" : ""}>No</option>
-                <option ${saved.titleMatch === "Yes" ? "selected" : ""}>Yes</option>
+              <select onchange="updateSegmentField('${segment.id}', 'titleMatch', this.value)">
+                <option ${segment.titleMatch !== "Yes" ? "selected" : ""}>No</option>
+                <option ${segment.titleMatch === "Yes" ? "selected" : ""}>Yes</option>
               </select>
             </div>
             <div>
               <label>Match Rating</label>
-              <input id="${segment.id}-rating" type="number" min="0" max="5" step=".25" value="${saved.rating || ""}" placeholder="Example: 4.25">
+              <input type="number" min="0" max="5" step=".25" value="${segment.rating || ""}" placeholder="Example: 4.25" oninput="updateSegmentField('${segment.id}', 'rating', this.value)">
             </div>
           </div>
         </div>
@@ -3401,138 +3325,400 @@ function renderDramaCurveAssistant(brandName, record = null) {
   `;
 }
 
-function renderWeeklyShows() {
-  ensureWeeklyData();
-  renderWeeklyBrandDropdown();
 
-  let week = Number(document.getElementById("weeklyWeek")?.value || data.season.currentWeek || 1);
-  week = Math.max(1, Math.min(50, week));
-  const weeklyWeekInput = document.getElementById("weeklyWeek");
-  if (weeklyWeekInput) weeklyWeekInput.value = week;
-  const brandName = document.getElementById("weeklyBrand")?.value || activeBrand || data.setup.brands?.[0]?.name || "";
-  const showType = isPleWeek(week) ? "PLE" : "Weekly Show";
+// =========================================
+// WEEKLY SHOW CLEAN DATA MODEL v8
+// =========================================
+let activeWeeklyCard = null;
 
-  const typeBox = document.getElementById("weeklyShowType");
-  if (typeBox) typeBox.textContent = `Week ${week}: ${showType}`;
-
-  const savedRecord = getWeeklyRecord(week, brandName);
-  const record = collectCurrentWeeklyCardState(savedRecord || {});
-  const notes = document.getElementById("weeklyNotes");
-  if (notes) notes.value = record?.notes || "";
-
-  const summary = document.getElementById("weeklySummary");
-  if (summary) {
-    summary.innerHTML = `
-      <strong>${escapeHtml(brandName || "No Brand Selected")}</strong><br>
-      Week: ${week}<br>
-      Type: ${showType}<br>
-      Saved Activity Rows: ${record?.activities?.length || 0}
-    `;
-  }
-
-  renderDramaCurveAssistant(brandName);
-
-  const table = document.getElementById("weeklyActivityTable");
-  if (!table) return;
-
-  const roster = data.roster.filter(w => w.brand === brandName).sort((a,b) => a.name.localeCompare(b.name));
-  const savedByName = Object.fromEntries((record?.activities || []).map(a => [a.name, a]));
-
-  table.innerHTML = `
-    <div class="activity-row header">
-      <div>Superstar</div>
-      <div>Activity</div>
-      <div>Before</div>
-      <div>After</div>
-      <div>Delta</div>
-    </div>
-    ${roster.map(w => {
-      const saved = savedByName[w.name] || {};
-      const before = saved.beforeStamina ?? w.stamina ?? w.startingStamina ?? 70;
-      const after = saved.afterStamina ?? "";
-      const activity = saved.activity || "Rest";
-      const delta = after === "" ? "" : Number(after) - Number(before);
-
-      return `
-        <div class="activity-row">
-          <div>
-            <strong>${escapeHtml(w.name)}</strong><br>
-            <span class="pill">${escapeHtml(w.gender || "Unknown")}</span>
-            <span class="pill">${escapeHtml(w.role || "")}</span>
-            <span class="pill">${escapeHtml(w.classType || "")}</span>
-            ${staminaBadgeHtml(before)}
-          </div>
-          <div>
-            <select id="weekly-activity-${slugify(w.name)}">
-              ${["Rest","Promo","Match","Double Booked","Injured/Unavailable"].map(x => `<option ${x===activity ? "selected" : ""}>${x}</option>`).join("")}
-            </select>
-          </div>
-          <div><input id="weekly-before-${slugify(w.name)}" type="number" min="0" max="100" value="${before}"></div>
-          <div><input id="weekly-after-${slugify(w.name)}" type="number" min="0" max="100" value="${after}"></div>
-          <div>${delta === "" ? `<span class="small">Pending</span>` : `<strong>${delta > 0 ? "+" : ""}${delta}</strong>`}</div>
-        </div>
-      `;
-    }).join("")}
-  `;
-
-  renderStaminaObservationSummary();
+function weeklyShowKey(season, week, brandName) {
+  return `${season}|${week}|${brandName}`;
 }
 
-function saveWeeklyShow() {
+function ensureWeeklyShowStore() {
   ensureWeeklyData();
+  if (!data.weeklyShows) data.weeklyShows = {};
+}
 
-  let week = Number(document.getElementById("weeklyWeek")?.value || 1);
-  week = Math.max(1, Math.min(50, week));
-  const brandName = document.getElementById("weeklyBrand")?.value || activeBrand || "";
-  if (!brandName) return alert("Select a brand first.");
+function defaultMatchSegment(id, label) {
+  const rule = matchRuleOptions[0];
+  return {
+    id,
+    label,
+    type: "match",
+    ruleKey: ruleKey(rule),
+    rule,
+    participants: Array(rule.wrestlers).fill(""),
+    winner: "",
+    titleMatch: "No",
+    rating: "",
+    after: {}
+  };
+}
 
-  const roster = data.roster.filter(w => w.brand === brandName);
-  const activities = [];
+function defaultPromoSegment(id, label) {
+  const promo = getPromoOption("Self Promo");
+  return {
+    id,
+    label,
+    type: "promo",
+    promoType: promo.name,
+    promo,
+    wrestlers: Array(promo.wrestlers).fill(""),
+    result: "",
+    after: {}
+  };
+}
 
-  roster.forEach(w => {
-    const key = slugify(w.name);
-    const activity = document.getElementById(`weekly-activity-${key}`)?.value || "Rest";
-    const beforeStamina = Number(document.getElementById(`weekly-before-${key}`)?.value || w.stamina || 70);
-    const afterRaw = document.getElementById(`weekly-after-${key}`)?.value;
-    const afterStamina = afterRaw === "" ? beforeStamina : Number(afterRaw);
-
-    activities.push({
-      name: w.name,
-      activity,
-      beforeStamina,
-      afterStamina,
-      delta: afterStamina - beforeStamina
-    });
-
-    w.stamina = afterStamina;
-
-    data.season.staminaObservations.push({
-      id: String(Date.now()) + "-" + Math.random().toString(16).slice(2),
-      week,
-      brand: brandName,
-      superstar: w.name,
-      activity,
-      beforeStamina,
-      afterStamina,
-      delta: afterStamina - beforeStamina,
-      showType: isPleWeek(week) ? "PLE" : "Weekly Show"
-    });
-  });
-
-  upsertWeeklyRecord({
+function buildDefaultWeeklyCard(week, brandName) {
+  return {
+    season: data.setup?.seasonNumber || 1,
     week,
     brand: brandName,
     showType: isPleWeek(week) ? "PLE" : "Weekly Show",
-    notes: document.getElementById("weeklyNotes")?.value || "",
-    activities,
-    savedAt: new Date().toLocaleString()
+    segments: weeklySegments.map(seg => seg.type === "match"
+      ? defaultMatchSegment(seg.id, seg.label)
+      : defaultPromoSegment(seg.id, seg.label)
+    ),
+    unused: [],
+    notes: "",
+    savedAt: ""
+  };
+}
+
+function migrateOldWeeklyRecordToCard(oldRecord, week, brandName) {
+  const card = buildDefaultWeeklyCard(week, brandName);
+  if (!oldRecord) return card;
+
+  card.notes = oldRecord.notes || "";
+  card.savedAt = oldRecord.savedAt || "";
+
+  (oldRecord.matches || []).forEach(m => {
+    const seg = card.segments.find(s => s.id === m.slotId);
+    if (!seg || seg.type !== "match") return;
+
+    const rule = getMatchRule(m.ruleKey || ruleKey(matchRuleOptions[0]));
+    seg.ruleKey = ruleKey(rule);
+    seg.rule = rule;
+    seg.participants = Array(rule.wrestlers).fill("").map((_, idx) => m.participants?.[idx] || "");
+    seg.winner = m.winner || "";
+    seg.titleMatch = m.titleMatch || "No";
+    seg.rating = m.rating || "";
+    seg.after = m.after || {};
   });
 
-  data.season.currentWeek = week;
-  transactionLog("Weekly Show", `${brandName} Week ${week} saved.`);
+  (oldRecord.promos || []).forEach(p => {
+    const seg = card.segments.find(s => s.id === p.slotId);
+    if (!seg || seg.type !== "promo") return;
+
+    const promo = getPromoOption(p.promoType || "Self Promo");
+    seg.promoType = promo.name;
+    seg.promo = promo;
+    seg.wrestlers = Array(promo.wrestlers).fill("").map((_, idx) => idx === 0 ? (p.wrestler || "") : (p.wrestler2 || ""));
+    seg.result = p.result || "";
+    seg.after = {};
+    if (p.wrestler) seg.after[p.wrestler] = { stamina: p.staminaAfter ?? "", pop: p.popAfter ?? "" };
+    if (p.wrestler2) seg.after[p.wrestler2] = { stamina: p.stamina2After ?? "", pop: p.pop2After ?? "" };
+  });
+
+  return card;
+}
+
+function getOrCreateWeeklyCard(week, brandName) {
+  ensureWeeklyShowStore();
+  const season = data.setup?.seasonNumber || 1;
+  const key = weeklyShowKey(season, week, brandName);
+
+  if (!data.weeklyShows[key]) {
+    const oldRecord = getWeeklyRecord(week, brandName);
+    data.weeklyShows[key] = migrateOldWeeklyRecordToCard(oldRecord, week, brandName);
+  }
+
+  return data.weeklyShows[key];
+}
+
+function loadActiveWeeklyCard() {
+  ensureWeeklyShowStore();
+
+  let week = Number(document.getElementById("weeklyWeek")?.value || data.season?.currentWeek || 1);
+  week = Math.max(1, Math.min(50, week));
+  const weekInput = document.getElementById("weeklyWeek");
+  if (weekInput) weekInput.value = week;
+
+  const brandName = document.getElementById("weeklyBrand")?.value || activeBrand || data.setup.brands?.[0]?.name || "";
+  if (!brandName) return null;
+
+  activeWeeklyCard = getOrCreateWeeklyCard(week, brandName);
+  return activeWeeklyCard;
+}
+
+function saveActiveWeeklyCardToStore() {
+  if (!activeWeeklyCard) return;
+  ensureWeeklyShowStore();
+  const key = weeklyShowKey(activeWeeklyCard.season, activeWeeklyCard.week, activeWeeklyCard.brand);
+  data.weeklyShows[key] = activeWeeklyCard;
+}
+
+function getActiveSegmentData() {
+  if (!activeWeeklyCard) return null;
+  return activeWeeklyCard.segments.find(s => s.id === activeWeeklySegment) || activeWeeklyCard.segments[0];
+}
+
+function setActiveSegmentData(segmentData) {
+  if (!activeWeeklyCard || !segmentData) return;
+  const idx = activeWeeklyCard.segments.findIndex(s => s.id === segmentData.id);
+  if (idx >= 0) activeWeeklyCard.segments[idx] = segmentData;
+  else activeWeeklyCard.segments.push(segmentData);
+  saveActiveWeeklyCardToStore();
+}
+
+function updateActiveMatchRule(segmentId, selectedRuleKey) {
+  const seg = activeWeeklyCard?.segments.find(s => s.id === segmentId);
+  if (!seg || seg.type !== "match") return;
+
+  const oldParticipants = [...(seg.participants || [])];
+  const oldAfter = { ...(seg.after || {}) };
+  const rule = getMatchRule(selectedRuleKey || ruleKey(matchRuleOptions[0]));
+
+  seg.ruleKey = ruleKey(rule);
+  seg.rule = rule;
+  seg.participants = Array(rule.wrestlers).fill("").map((_, idx) => oldParticipants[idx] || "");
+  seg.after = oldAfter;
+
+  if (!seg.participants.includes(seg.winner)) seg.winner = "";
+  setActiveSegmentData(seg);
+}
+
+function updateActivePromoType(segmentId, promoType) {
+  const seg = activeWeeklyCard?.segments.find(s => s.id === segmentId);
+  if (!seg || seg.type !== "promo") return;
+
+  const oldWrestlers = [...(seg.wrestlers || [])];
+  const oldAfter = { ...(seg.after || {}) };
+  const promo = getPromoOption(promoType || "Self Promo");
+
+  seg.promoType = promo.name;
+  seg.promo = promo;
+  seg.wrestlers = Array(promo.wrestlers).fill("").map((_, idx) => oldWrestlers[idx] || "");
+  seg.after = oldAfter;
+
+  setActiveSegmentData(seg);
+}
+
+function updateMatchParticipant(segmentId, index, name) {
+  const seg = activeWeeklyCard?.segments.find(s => s.id === segmentId);
+  if (!seg || seg.type !== "match") return;
+  seg.participants[index] = name;
+  if (!seg.participants.includes(seg.winner)) seg.winner = "";
+  setActiveSegmentData(seg);
+}
+
+function updatePromoWrestler(segmentId, index, name) {
+  const seg = activeWeeklyCard?.segments.find(s => s.id === segmentId);
+  if (!seg || seg.type !== "promo") return;
+  seg.wrestlers[index] = name;
+  setActiveSegmentData(seg);
+}
+
+function updateSegmentField(segmentId, field, value) {
+  const seg = activeWeeklyCard?.segments.find(s => s.id === segmentId);
+  if (!seg) return;
+  seg[field] = value;
+  setActiveSegmentData(seg);
+}
+
+function updateSegmentAfter(segmentId, wrestlerName, field, value) {
+  const seg = activeWeeklyCard?.segments.find(s => s.id === segmentId);
+  if (!seg || !wrestlerName) return;
+  if (!seg.after) seg.after = {};
+  if (!seg.after[wrestlerName]) seg.after[wrestlerName] = { stamina: "", pop: "" };
+  seg.after[wrestlerName][field] = value === "" ? "" : Number(value);
+  setActiveSegmentData(seg);
+}
+
+function updateActiveWeeklyNotes(value) {
+  if (!activeWeeklyCard) return;
+  activeWeeklyCard.notes = value || "";
+  saveActiveWeeklyCardToStore();
+}
+
+function updateActiveUnused(name, field, value) {
+  if (!activeWeeklyCard) return;
+  if (!activeWeeklyCard.unused) activeWeeklyCard.unused = [];
+  let row = activeWeeklyCard.unused.find(u => u.name === name);
+  if (!row) {
+    const w = data.roster.find(x => x.brand === activeWeeklyCard.brand && x.name === name);
+    row = {
+      name,
+      beforeStamina: Number(w?.stamina ?? w?.startingStamina ?? 70),
+      beforePop: Number(w?.pop ?? 0),
+      afterStamina: Number(w?.stamina ?? w?.startingStamina ?? 70),
+      afterPop: Number(w?.pop ?? 0)
+    };
+    activeWeeklyCard.unused.push(row);
+  }
+  row[field] = value === "" ? "" : Number(value);
+  saveActiveWeeklyCardToStore();
+}
+
+function getBookedNamesFromActiveCard() {
+  const booked = new Set();
+  (activeWeeklyCard?.segments || []).forEach(seg => {
+    if (seg.type === "match") {
+      (seg.participants || []).filter(Boolean).forEach(name => booked.add(name));
+    } else {
+      (seg.wrestlers || []).filter(Boolean).forEach(name => booked.add(name));
+    }
+  });
+  return booked;
+}
+
+function activeCardToLegacyWeeklyRecord(card) {
+  return {
+    week: card.week,
+    brand: card.brand,
+    showType: card.showType,
+    notes: card.notes || "",
+    savedAt: card.savedAt || "",
+    matches: (card.segments || []).filter(s => s.type === "match").map(seg => ({
+      slotId: seg.id,
+      label: seg.label,
+      ruleKey: seg.ruleKey,
+      rule: seg.rule,
+      participants: seg.participants || [],
+      winner: seg.winner || "",
+      titleMatch: seg.titleMatch || "No",
+      rating: seg.rating || "",
+      before: {},
+      after: seg.after || {}
+    })),
+    promos: (card.segments || []).filter(s => s.type === "promo").map(seg => ({
+      slotId: seg.id,
+      label: seg.label,
+      wrestler: seg.wrestlers?.[0] || "",
+      wrestler2: seg.wrestlers?.[1] || "",
+      promoType: seg.promoType || "Self Promo",
+      result: seg.result || "",
+      staminaAfter: seg.after?.[seg.wrestlers?.[0]]?.stamina ?? "",
+      popAfter: seg.after?.[seg.wrestlers?.[0]]?.pop ?? "",
+      stamina2After: seg.after?.[seg.wrestlers?.[1]]?.stamina ?? "",
+      pop2After: seg.after?.[seg.wrestlers?.[1]]?.pop ?? "",
+      promoResults: []
+    })),
+    unused: card.unused || []
+  };
+}
+
+function applyActiveCardToRoster(card) {
+  (card.segments || []).forEach(seg => {
+    if (seg.type === "match") {
+      (seg.participants || []).filter(Boolean).forEach(name => {
+        const w = getSuperstarByBrandName(card.brand, name);
+        if (!w) return;
+
+        const after = seg.after?.[name] || {};
+        if (after.stamina !== "" && typeof after.stamina !== "undefined") w.stamina = Number(after.stamina);
+        if (after.pop !== "" && typeof after.pop !== "undefined") w.pop = Number(after.pop);
+      });
+    } else {
+      const promo = getPromoOption(seg.promoType || "Self Promo");
+      (seg.wrestlers || []).filter(Boolean).slice(0, promo.wrestlers).forEach(name => {
+        const w = getSuperstarByBrandName(card.brand, name);
+        if (!w) return;
+
+        const after = seg.after?.[name] || {};
+        w.stamina = after.stamina === "" || typeof after.stamina === "undefined"
+          ? Math.min(100, Number(w.stamina ?? w.startingStamina ?? 70) + promo.staminaGain)
+          : Number(after.stamina);
+
+        if (after.pop !== "" && typeof after.pop !== "undefined") w.pop = Number(after.pop);
+      });
+    }
+  });
+
+  (card.unused || []).forEach(u => {
+    const w = getSuperstarByBrandName(card.brand, u.name);
+    if (!w) return;
+    if (u.afterStamina !== "" && typeof u.afterStamina !== "undefined") w.stamina = Number(u.afterStamina);
+    if (u.afterPop !== "" && typeof u.afterPop !== "undefined") w.pop = Number(u.afterPop);
+  });
+}
+
+function renderWeeklySaveStatus() {
+  const box = document.getElementById("weeklySaveStatus");
+  if (!box || !activeWeeklyCard) return;
+  const filled = (activeWeeklyCard.segments || []).filter(seg => {
+    if (seg.type === "match") return (seg.participants || []).filter(Boolean).length >= 2;
+    return (seg.wrestlers || []).filter(Boolean).length >= 1;
+  }).length;
+  box.textContent = `Current card: ${activeWeeklyCard.brand} Week ${activeWeeklyCard.week} • ${filled}/7 segments started`;
+}
+
+function renderWeeklyShows() {
+  ensureWeeklyData();
+  ensureWeeklyShowStore();
+  renderWeeklyBrandDropdown();
+
+  const card = loadActiveWeeklyCard();
+  if (!card) return;
+
+  activeBrand = card.brand || activeBrand;
+  renderWeeklyBrandTabs();
+  setWeeklyBrandStyle(card.brand);
+
+  const typeBox = document.getElementById("weeklyShowType");
+  if (typeBox) typeBox.textContent = `Week ${card.week}: ${card.showType}`;
+
+  const notes = document.getElementById("weeklyNotes");
+  if (notes) notes.value = card.notes || "";
+
+  const summary = document.getElementById("weeklySummary");
+  if (summary) {
+    const matchesStarted = card.segments.filter(s => s.type === "match" && (s.participants || []).some(Boolean)).length;
+    const promosStarted = card.segments.filter(s => s.type === "promo" && (s.wrestlers || []).some(Boolean)).length;
+    summary.innerHTML = `
+      <strong>${escapeHtml(card.brand || "No Brand Selected")}</strong><br>
+      Week: ${card.week}<br>
+      Type: ${card.showType}<br>
+      Matches Started: ${matchesStarted}<br>
+      Promos Started: ${promosStarted}
+    `;
+  }
+
+  renderWeeklySegmentList(card, card.brand);
+
+  const builder = document.getElementById("weeklyCardBuilder");
+  if (builder) {
+    const selectedSegment = card.segments.find(s => s.id === activeWeeklySegment) || card.segments[0];
+    builder.innerHTML = renderSelectedWeeklyDetail(selectedSegment, data.roster.filter(w => w.brand === card.brand).sort((a,b) => a.name.localeCompare(b.name)), card, card.brand);
+  }
+
+  renderDramaCurveAssistant(card.brand, card);
+  updateUnusedRosterList();
+  renderStaminaObservationSummary();
+  renderWeeklySaveStatus();
+}
+
+function saveWeeklyShow() {
+  ensureWeeklyShowStore();
+  if (!activeWeeklyCard) loadActiveWeeklyCard();
+  if (!activeWeeklyCard) return alert("Select a brand first.");
+
+  activeWeeklyCard.notes = document.getElementById("weeklyNotes")?.value || activeWeeklyCard.notes || "";
+  activeWeeklyCard.savedAt = new Date().toLocaleString();
+
+  applyActiveCardToRoster(activeWeeklyCard);
+
+  const legacyRecord = activeCardToLegacyWeeklyRecord(activeWeeklyCard);
+  upsertWeeklyRecord(legacyRecord);
+
+  saveActiveWeeklyCardToStore();
+
+  data.season.currentWeek = activeWeeklyCard.week;
+  transactionLog("Weekly Show", `${activeWeeklyCard.brand} Week ${activeWeeklyCard.week} card saved.`);
   saveData();
   renderAll();
-  alert(`${brandName} Week ${week} saved.`);
+  alert(`${activeWeeklyCard.brand} Week ${activeWeeklyCard.week} card saved.`);
 }
 
 function renderStaminaObservationSummary() {
@@ -3892,6 +4078,7 @@ function setWeeklyBrand(brandName) {
   const el = document.getElementById("weeklyBrand");
   if (el) el.value = brandName;
   setWeeklyBrandStyle(brandName);
+  activeWeeklyCard = null;
   renderWeeklyShows();
 }
 
@@ -3944,49 +4131,36 @@ function getSuperstarByBrandName(brandName, wrestlerName) {
 }
 
 function getBookedNamesFromCard() {
-  const booked = new Set();
-
-  weeklySegments.forEach(segment => {
-    if (segment.type === "match") {
-      const rule = getMatchRule(document.getElementById(`${segment.id}-rule`)?.value || ruleKey(matchRuleOptions[0]));
-      for (let i = 1; i <= rule.wrestlers; i++) {
-        const name = document.getElementById(`${segment.id}-w${i}`)?.value || "";
-        if (name) booked.add(name);
-      }
-    } else {
-      const name = document.getElementById(`${segment.id}-wrestler`)?.value || "";
-      const name2 = document.getElementById(`${segment.id}-wrestler2`)?.value || "";
-      if (name) booked.add(name);
-      if (name2) booked.add(name2);
-    }
-  });
-
-  return booked;
+  return getBookedNamesFromActiveCard();
 }
 
 function updateUnusedRosterList() {
   const box = document.getElementById("unusedRosterList");
-  if (!box) return;
+  if (!box || !activeWeeklyCard) return;
 
-  const brandName = document.getElementById("weeklyBrand")?.value || activeBrand || "";
-  const roster = data.roster.filter(w => w.brand === brandName);
-  const booked = getBookedNamesFromCard();
+  const roster = data.roster.filter(w => w.brand === activeWeeklyCard.brand);
+  const booked = getBookedNamesFromActiveCard();
 
   const unused = roster.filter(w => !booked.has(w.name));
 
   box.innerHTML = unused.length ? `
     <div class="unused-pro-grid">
-      ${unused.map(w => `
-        <div class="unused-pro-card">
-          <strong>${escapeHtml(w.name)}</strong>
-          ${staminaBadgeHtml(w.stamina ?? w.startingStamina ?? 70)}
-          <span class="pill">POP ${w.pop ?? 0}</span>
-          <label class="small">Stamina After</label>
-          <input id="unused-stamina-${slugify(w.name)}" type="number" min="0" max="100" value="${w.stamina ?? w.startingStamina ?? 70}">
-          <label class="small">Popularity After</label>
-          <input id="unused-pop-${slugify(w.name)}" type="number" min="0" max="100" value="${w.pop ?? 0}">
-        </div>
-      `).join("")}
+      ${unused.map(w => {
+        const saved = (activeWeeklyCard.unused || []).find(u => u.name === w.name) || {};
+        const afterStamina = saved.afterStamina ?? w.stamina ?? w.startingStamina ?? 70;
+        const afterPop = saved.afterPop ?? w.pop ?? 0;
+        return `
+          <div class="unused-pro-card">
+            <strong>${escapeHtml(w.name)}</strong>
+            ${staminaBadgeHtml(w.stamina ?? w.startingStamina ?? 70)}
+            <span class="pill">POP ${w.pop ?? 0}</span>
+            <label class="small">Stamina After</label>
+            <input type="number" min="0" max="100" value="${afterStamina}" oninput="updateActiveUnused('${escapeHtml(w.name)}', 'afterStamina', this.value)">
+            <label class="small">Popularity After</label>
+            <input type="number" min="0" max="100" value="${afterPop}" oninput="updateActiveUnused('${escapeHtml(w.name)}', 'afterPop', this.value)">
+          </div>
+        `;
+      }).join("")}
     </div>
   ` : `<p class="small">Everyone on this brand is currently booked.</p>`;
 }
@@ -4443,6 +4617,126 @@ function resetData() {
 }
 
 loadData();
+
+// =========================================
+// FINAL WEEKLY DATA-MODEL OVERRIDES v8.1
+// These are intentionally placed last so old duplicate weekly functions cannot override them.
+// =========================================
+
+function renderWeeklyShows() {
+  ensureWeeklyData();
+  ensureWeeklyShowStore();
+  renderWeeklyBrandDropdown();
+
+  const card = loadActiveWeeklyCard();
+  if (!card) return;
+
+  activeBrand = card.brand || activeBrand;
+  renderWeeklyBrandTabs();
+  setWeeklyBrandStyle(card.brand);
+
+  const typeBox = document.getElementById("weeklyShowType");
+  if (typeBox) typeBox.textContent = `Week ${card.week}: ${card.showType}`;
+
+  const notes = document.getElementById("weeklyNotes");
+  if (notes) {
+    notes.value = card.notes || "";
+    notes.oninput = () => updateActiveWeeklyNotes(notes.value);
+  }
+
+  const summary = document.getElementById("weeklySummary");
+  if (summary) {
+    const matchesStarted = card.segments.filter(s => s.type === "match" && (s.participants || []).some(Boolean)).length;
+    const promosStarted = card.segments.filter(s => s.type === "promo" && (s.wrestlers || []).some(Boolean)).length;
+    summary.innerHTML = `
+      <strong>${escapeHtml(card.brand || "No Brand Selected")}</strong><br>
+      Week: ${card.week}<br>
+      Type: ${card.showType}<br>
+      Matches Started: ${matchesStarted}<br>
+      Promos Started: ${promosStarted}
+    `;
+  }
+
+  renderWeeklySegmentList(card, card.brand);
+
+  const builder = document.getElementById("weeklyCardBuilder");
+  if (builder) {
+    const selectedSegment = card.segments.find(s => s.id === activeWeeklySegment) || card.segments[0];
+    builder.innerHTML = renderSelectedWeeklyDetail(
+      selectedSegment,
+      data.roster.filter(w => w.brand === card.brand).sort((a,b) => a.name.localeCompare(b.name)),
+      card,
+      card.brand
+    );
+  }
+
+  renderDramaCurveAssistant(card.brand, card);
+  updateUnusedRosterList();
+  renderStaminaObservationSummary();
+  renderWeeklySaveStatus();
+}
+
+function saveWeeklyShow() {
+  ensureWeeklyShowStore();
+  if (!activeWeeklyCard) loadActiveWeeklyCard();
+  if (!activeWeeklyCard) return alert("Select a brand first.");
+
+  activeWeeklyCard.notes = document.getElementById("weeklyNotes")?.value || activeWeeklyCard.notes || "";
+  activeWeeklyCard.savedAt = new Date().toLocaleString();
+
+  applyActiveCardToRoster(activeWeeklyCard);
+
+  const legacyRecord = activeCardToLegacyWeeklyRecord(activeWeeklyCard);
+  upsertWeeklyRecord(legacyRecord);
+
+  saveActiveWeeklyCardToStore();
+
+  data.season.currentWeek = activeWeeklyCard.week;
+  transactionLog("Weekly Show", `${activeWeeklyCard.brand} Week ${activeWeeklyCard.week} card saved.`);
+  saveData();
+  renderAll();
+  alert(`${activeWeeklyCard.brand} Week ${activeWeeklyCard.week} card saved.`);
+}
+
+function setActiveWeeklySegment(segmentId) {
+  activeWeeklySegment = segmentId;
+  renderWeeklyShows();
+}
+
+function updateWeeklyCardLive() {
+  if (!activeWeeklyCard) loadActiveWeeklyCard();
+  if (!activeWeeklyCard) return;
+
+  renderWeeklySegmentList(activeWeeklyCard, activeWeeklyCard.brand);
+  renderDramaCurveAssistant(activeWeeklyCard.brand, activeWeeklyCard);
+  updateUnusedRosterList();
+  renderWeeklySaveStatus();
+}
+
+function updateWeeklyMatchSegment(segmentId) {
+  if (!activeWeeklyCard) loadActiveWeeklyCard();
+  const ruleKeyValue = document.getElementById(`${segmentId}-rule`)?.value || ruleKey(matchRuleOptions[0]);
+  updateActiveMatchRule(segmentId, ruleKeyValue);
+  renderWeeklyShows();
+}
+
+function updatePromoSegment(segmentId) {
+  if (!activeWeeklyCard) loadActiveWeeklyCard();
+  const promoType = document.getElementById(`${segmentId}-type`)?.value || "Self Promo";
+  updateActivePromoType(segmentId, promoType);
+  renderWeeklyShows();
+}
+
+function setWeeklyBrand(brandName) {
+  if (!brandName) return;
+  activeBrand = brandName;
+  const el = document.getElementById("weeklyBrand");
+  if (el) el.value = brandName;
+  activeWeeklyCard = null;
+  setWeeklyBrandStyle(brandName);
+  renderWeeklyShows();
+}
+
 </script>
 </body>
 </html>
